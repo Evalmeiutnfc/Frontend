@@ -1,0 +1,19 @@
+/* Styles globaux pour supprimer les marges et le scroll */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important; /* Empêche tout scroll */
+  position: fixed !important; /* Empêche le défilement du viewport */
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
+#app {
+  height: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
