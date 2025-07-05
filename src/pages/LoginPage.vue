@@ -71,10 +71,11 @@
           variant="text"
           color="primary"
           class="text-caption"
-          @click="router.push('/register')"
+          @click="goToRegister"
         >
           Créer un compte
         </v-btn>
+        
         <v-btn variant="text" color="grey" class="text-caption mt-1">
           Aide / Contact / Perte de mot de passe
         </v-btn>
@@ -126,6 +127,12 @@ const login = async () => {
     }
 
     const data = await response.json();
+    
+    console.log('=== CONNEXION RÉUSSIE ===');
+    console.log('Token reçu:', data.token);
+    console.log('Utilisateur:', data.user);
+    console.log('========================');
+    
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
     router.push('/dashboard');
@@ -135,6 +142,10 @@ const login = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const goToRegister = () => {
+  router.push('/register');
 };
 </script>
 

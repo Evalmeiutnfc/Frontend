@@ -9,7 +9,7 @@ import EvaluationsPage from './pages/EvaluationsPage.vue'
 import ExportPage from './pages/ExportPage.vue'
 
 const routes = [
-  // { path: '/', redirect: '/login' },
+  { path: '/', redirect: '/login' },
   { path: '/login', component: LoginPage },
   { path: '/register', component: RegisterPage },
   { path: '/dashboard', component: DashboardPage },
@@ -27,43 +27,27 @@ const router = createRouter({
 // 🔒 Middleware global : vérifie le token pour sécuriser les routes
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
-  console.log('Navigation vers:', to.path)
-  console.log('Token présent:', token)
 
   // Routes publiques accessibles sans être connecté
   const publicPages = ['/login', '/register']
 
-  console.log('Token détecté:', token);
-  console.log('Route demandée:', to.path);
-  console.log('Routes publiques:', publicPages);
-
-  if (publicPages.includes(to.path)) {
-    console.log('Route publique détectée:', to.path)
-
-    // Permettre l'accès à /register sans redirection
-    if (to.path === '/register') {
-      console.log('Accès à /register autorisé')
-      return next()
-    }
-
-    // Si connecté, éviter d'accéder à /login
+  // Si c'est une route publique, permettre l'accès
+  if (publicPages.includes(to.path)) {    
+    // Si on va vers /login et qu'on est déjà connecté, rediriger vers dashboard
     if (to.path === '/login' && token) {
-      console.log('Redirection vers /dashboard car déjà connecté')
       return next('/dashboard')
     }
-
-    console.log('Accès à une route publique autorisé')
+    
+    // Pour toutes les autres routes publiques (y compris /register)
     return next()
   }
 
   // Si la route est protégée et qu'on n'a pas de token
   if (!token) {
-    console.log('Redirection vers /login car token manquant')
     return next('/login')
   }
 
   // Sinon, continuer normalement
-  console.log('Accès à une route protégée autorisé')
   next()
 })
 

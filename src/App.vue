@@ -7,13 +7,15 @@ import AppSidebar from './components/AppSidebar.vue';
 const router = useRouter();
 const isAuthenticated = ref(false);
 const isLoginPage = computed(() => router.currentRoute.value.path === '/login');
+const isRegisterPage = computed(() => router.currentRoute.value.path === '/register');
+const isPublicPage = computed(() => isLoginPage.value || isRegisterPage.value);
 
 const checkAuth = () => {
   const token = localStorage.getItem('token');
   isAuthenticated.value = !!token;
   
-  // Rediriger vers la page de login si non authentifié et pas déjà sur la page de login
-  if (!isAuthenticated.value && !isLoginPage.value) {
+  // Rediriger vers la page de login si non authentifié et pas sur une page publique
+  if (!isAuthenticated.value && !isPublicPage.value) {
     router.push('/login');
   }
   
@@ -34,11 +36,11 @@ onMounted(() => {
 
 <template>
   <v-app>
-    <template v-if="!isLoginPage">
+    <template v-if="!isPublicPage">
       <AppNavbar />
       <AppSidebar />
     </template>
-    <v-main :class="{ 'login-main': isLoginPage }">
+    <v-main :class="{ 'public-page-main': isPublicPage }">
       <router-view />
     </v-main>
   </v-app>
@@ -63,7 +65,7 @@ onMounted(() => {
   background: var(--background-color);
 }
 
-.login-main {
+.public-page-main {
   display: flex;
   flex-direction: column;
   align-items: center;
