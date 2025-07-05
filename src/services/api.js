@@ -1,5 +1,5 @@
 // Service pour gérer les appels API vers le backend
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:5000/api';
 
 // Fonction helper pour les requêtes HTTP
 async function httpRequest(endpoint, method = 'GET', data = null) {
