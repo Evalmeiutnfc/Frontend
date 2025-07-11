@@ -66,11 +66,10 @@ onMounted(() => {
 }
 
 .public-page-main {
+  min-height: 100vh;
+  background: #f5f6fa;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  background: var(--background-color);
 }
 </style>

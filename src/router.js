@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage.vue'
 import RegisterPage from './pages/RegisterPage.vue'
 import DashboardPage from './pages/DashboardPage.vue'
 import StudentsPage from './pages/StudentsPage.vue'
+import GroupsPage from './pages/GroupsPage.vue'
+import PromotionsPage from './pages/PromotionsPage.vue'
 import FormsPage from './pages/FormsPage.vue'
 import EvaluationsPage from './pages/EvaluationsPage.vue'
 import ExportPage from './pages/ExportPage.vue'
@@ -14,6 +16,8 @@ const routes = [
   { path: '/register', component: RegisterPage },
   { path: '/dashboard', component: DashboardPage },
   { path: '/students', component: StudentsPage },
+  { path: '/groups', component: GroupsPage },
+  { path: '/promotions', component: PromotionsPage },
   { path: '/forms', component: FormsPage },
   { path: '/evaluations', component: EvaluationsPage },
   { path: '/export', component: ExportPage }

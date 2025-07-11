@@ -33,6 +33,8 @@ import { ref } from 'vue';
 const menuItems = ref([
   { title: 'Tableau de bord', icon: 'mdi-view-dashboard', to: '/dashboard' },
   { title: 'Étudiants', icon: 'mdi-account-group', to: '/students' },
+  { title: 'Groupes', icon: 'mdi-account-multiple', to: '/groups' },
+  { title: 'Promotions', icon: 'mdi-school', to: '/promotions' },
   { title: 'Formulaires', icon: 'mdi-file-document-outline', to: '/forms' },
   { title: 'Évaluations', icon: 'mdi-clipboard-check-outline', to: '/evaluations' },
   { title: 'Export CSV', icon: 'mdi-file-export', to: '/export' }

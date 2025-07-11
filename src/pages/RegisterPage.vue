@@ -213,7 +213,7 @@ const register = async () => {
         email: email.value,
         login: login.value,
         password: password.value,
-        role: 'user' // Rôle par défaut
+        role: 'professor' // Rôle par défaut
       })
     });
     

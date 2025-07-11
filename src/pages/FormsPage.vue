@@ -1,10 +1,28 @@
 <template>
-  <v-container fluid>
-    <v-row>
+  <v-container fluid class="pa-4">
+    <!-- En-tête amélioré -->
+    <v-row class="mb-6">
       <v-col cols="12">
-        <div class="d-flex align-center justify-space-between mb-6">
-          <h2 class="text-h4">Formulaires d'évaluation</h2>
-          <v-btn color="primary" prepend-icon="mdi-plus" @click="openDialog">
+        <div class="d-flex align-center justify-space-between">
+          <div>
+            <h1 class="text-h4 font-weight-bold mb-2">
+              <v-icon size="large" color="primary" class="mr-3">
+                mdi-clipboard-text
+              </v-icon>
+              Gestion des formulaires
+            </h1>
+            <p class="text-subtitle-1 text-medium-emphasis">
+              Créez et gérez vos formulaires d'évaluation
+            </p>
+          </div>
+          <v-btn
+            color="primary"
+            size="large"
+            @click="openDialog"
+            prepend-icon="mdi-plus"
+            variant="elevated"
+            class="text-h6"
+          >
             Créer un formulaire
           </v-btn>
         </div>
@@ -13,84 +31,217 @@
 
     <v-row>
       <v-col cols="12">
-        <v-card class="pa-4">
-          <v-card-title>Liste des formulaires</v-card-title>
-          <v-card-text>
-            <!-- Search and Filter -->
-            <v-row class="mb-4">
-              <v-col cols="12" sm="6" md="4">
+        <v-card class="rounded-lg elevation-3" color="surface">
+          <v-card-text class="pa-6">
+            <!-- Filtres et recherche -->
+            <v-row class="mb-6" align="center">
+              <v-col cols="12" md="4">
                 <v-text-field
                   v-model="search"
                   label="Rechercher un formulaire"
+                  placeholder="Titre, professeur..."
                   prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
                   density="comfortable"
                   hide-details
-                  variant="outlined"
                   @input="filterForms"
-                ></v-text-field>
+                  clearable
+                >
+                  <template v-slot:append-inner>
+                    <v-fade-transition>
+                      <v-icon v-if="search" size="small" color="primary">
+                        mdi-clipboard-search
+                      </v-icon>
+                    </v-fade-transition>
+                  </template>
+                </v-text-field>
               </v-col>
-              <v-col cols="12" sm="6" md="4">
-                <v-text-field
-                  v-model="filterValidFrom"
-                  label="Valide à partir de"
-                  type="date"
+              <v-col cols="12" md="4">
+                <v-select
+                  v-model="selectedAssociationType"
+                  :items="associationTypeOptions"
+                  label="Type d'association"
+                  variant="outlined"
                   density="comfortable"
                   hide-details
-                  variant="outlined"
-                  @input="filterForms"
-                ></v-text-field>
+                  prepend-inner-icon="mdi-account-group"
+                  @update:model-value="filterForms"
+                  clearable
+                ></v-select>
               </v-col>
-              <v-col cols="12" sm="6" md="4">
-                <v-text-field
-                  v-model="filterValidTo"
-                  label="Valide jusqu'à"
-                  type="date"
+              <v-col cols="12" md="4">
+                <v-select
+                  v-model="selectedStatus"
+                  :items="statusOptions"
+                  label="Statut"
+                  variant="outlined"
                   density="comfortable"
                   hide-details
-                  variant="outlined"
-                  @input="filterForms"
-                ></v-text-field>
+                  prepend-inner-icon="mdi-calendar-check"
+                  @update:model-value="filterForms"
+                  clearable
+                ></v-select>
               </v-col>
             </v-row>
 
-            <!-- Data Table -->
+            <!-- Tableau des formulaires -->
             <v-data-table
               :headers="headers"
               :items="filteredForms"
-              :items-per-page="10"
+              :items-per-page="pagination.limit"
+              :page="pagination.page"
+              :server-items-length="pagination.total"
               class="elevation-1 rounded-lg"
               :loading="loading"
+              loading-text="Chargement des formulaires..."
+              no-data-text="Aucun formulaire trouvé"
+              items-per-page-text="Formulaires par page"
+              @update:options="handleTableOptions"
             >
+              <!-- Titre avec statut -->
+              <template v-slot:item.title="{ item }">
+                <div class="d-flex align-center">
+                  <v-avatar 
+                    :color="getStatusColor(item)" 
+                    size="32" 
+                    class="mr-3"
+                  >
+                    <v-icon color="white">{{ getStatusIcon(item) }}</v-icon>
+                  </v-avatar>
+                  <div>
+                    <div class="font-weight-medium">{{ item.title }}</div>
+                    <div class="text-caption text-medium-emphasis">
+                      {{ getSectionsCount(item) }} {{ getSectionsCount(item) > 1 ? 'sections' : 'section' }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Professeur -->
+              <template v-slot:item.professor="{ item }">
+                <div class="d-flex align-center">
+                  <v-icon size="small" color="primary" class="mr-2">mdi-account-tie</v-icon>
+                  <span>{{ item.professor?.firstName }} {{ item.professor?.lastName }}</span>
+                </div>
+              </template>
+
+              <!-- Type d'association -->
               <template v-slot:item.associationType="{ item }">
-                <v-chip 
-                  :color="item.associationType === 'student' ? 'primary' : 'secondary'"
-                  small
+                <v-chip
+                  :color="item.associationType === 'student' ? 'green' : 'blue'"
+                  :prepend-icon="item.associationType === 'student' ? 'mdi-account' : 'mdi-account-group'"
+                  size="small"
+                  variant="flat"
+                  class="font-weight-medium"
                 >
                   {{ item.associationType === 'student' ? 'Étudiants' : 'Groupes' }}
                 </v-chip>
               </template>
-              
-              <template v-slot:item.validFrom="{ item }">
-                {{ formatDate(item.validFrom) }}
-              </template>
-              
-              <template v-slot:item.validTo="{ item }">
-                {{ formatDate(item.validTo) }}
+
+              <!-- Cibles -->
+              <template v-slot:item.targets="{ item }">
+                <div class="d-flex flex-wrap gap-1">
+                  <v-chip
+                    v-if="item.students && item.students.length > 0"
+                    color="green"
+                    size="small"
+                    variant="outlined"
+                    prepend-icon="mdi-account"
+                  >
+                    {{ item.students.length }} étudiant{{ item.students.length > 1 ? 's' : '' }}
+                  </v-chip>
+                  <v-chip
+                    v-if="item.groups && item.groups.length > 0"
+                    color="blue"
+                    size="small"
+                    variant="outlined"
+                    prepend-icon="mdi-account-group"
+                  >
+                    {{ item.groups.length }} groupe{{ item.groups.length > 1 ? 's' : '' }}
+                  </v-chip>
+                </div>
               </template>
 
+              <!-- Période de validité -->
+              <template v-slot:item.validity="{ item }">
+                <div class="text-caption">
+                  <div class="d-flex align-center mb-1">
+                    <v-icon size="small" color="success" class="mr-1">mdi-calendar-start</v-icon>
+                    <span>{{ formatDate(item.validFrom) }}</span>
+                  </div>
+                  <div class="d-flex align-center">
+                    <v-icon size="small" color="error" class="mr-1">mdi-calendar-end</v-icon>
+                    <span>{{ formatDate(item.validTo) }}</span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Statut -->
+              <template v-slot:item.status="{ item }">
+                <v-chip
+                  :color="getStatusColor(item)"
+                  size="small"
+                  variant="flat"
+                  :prepend-icon="getStatusIcon(item)"
+                >
+                  {{ getStatusText(item) }}
+                </v-chip>
+              </template>
+
+              <!-- Actions -->
               <template v-slot:item.actions="{ item }">
-                <v-btn icon variant="text" color="primary" @click="editForm(item)" size="small">
-                  <v-icon>mdi-pencil</v-icon>
-                  <v-tooltip activator="parent" location="top">Modifier</v-tooltip>
-                </v-btn>
-                <v-btn icon variant="text" color="success" @click="duplicateForm(item)" size="small">
-                  <v-icon>mdi-content-copy</v-icon>
-                  <v-tooltip activator="parent" location="top">Dupliquer</v-tooltip>
-                </v-btn>
-                <v-btn icon variant="text" color="error" @click="confirmDeleteForm(item)" size="small">
-                  <v-icon>mdi-delete</v-icon>
-                  <v-tooltip activator="parent" location="top">Supprimer</v-tooltip>
-                </v-btn>
+                <div class="d-flex gap-1">
+                  <v-btn 
+                    icon="mdi-eye" 
+                    variant="text" 
+                    color="info" 
+                    size="small"
+                    @click="viewForm(item)"
+                  >
+                    <v-icon size="small">mdi-eye</v-icon>
+                    <v-tooltip activator="parent" location="top">Voir les détails</v-tooltip>
+                  </v-btn>
+                  <v-btn 
+                    icon="mdi-pencil" 
+                    variant="text" 
+                    color="primary" 
+                    size="small"
+                    @click="editForm(item)"
+                  >
+                    <v-icon size="small">mdi-pencil</v-icon>
+                    <v-tooltip activator="parent" location="top">Modifier</v-tooltip>
+                  </v-btn>
+                  <v-btn 
+                    icon="mdi-content-copy" 
+                    variant="text" 
+                    color="warning" 
+                    size="small"
+                    @click="duplicateForm(item)"
+                  >
+                    <v-icon size="small">mdi-content-copy</v-icon>
+                    <v-tooltip activator="parent" location="top">Dupliquer</v-tooltip>
+                  </v-btn>
+                  <v-btn 
+                    icon="mdi-download" 
+                    variant="text" 
+                    color="success" 
+                    size="small"
+                    @click="exportForm(item)"
+                  >
+                    <v-icon size="small">mdi-download</v-icon>
+                    <v-tooltip activator="parent" location="top">Exporter</v-tooltip>
+                  </v-btn>
+                  <v-btn 
+                    icon="mdi-delete" 
+                    variant="text" 
+                    color="error" 
+                    size="small"
+                    @click="confirmDeleteForm(item)"
+                  >
+                    <v-icon size="small">mdi-delete</v-icon>
+                    <v-tooltip activator="parent" location="top">Supprimer</v-tooltip>
+                  </v-btn>
+                </div>
               </template>
             </v-data-table>
           </v-card-text>
@@ -99,19 +250,35 @@
     </v-row>
 
     <!-- Dialog de création/modification de formulaire -->
-    <v-dialog v-model="dialog" max-width="1000px" persistent>
-      <v-card>
-        <v-card-title class="text-h5 primary text-white pa-4">
-          <v-icon left color="white">mdi-file-document-outline</v-icon>
-          {{ dialogTitle }}
+    <v-dialog v-model="dialog" max-width="1200px" persistent>
+      <v-card class="rounded-lg">
+        <v-card-title class="pa-6 pb-4">
+          <div class="d-flex align-center">
+            <v-icon size="large" color="primary" class="mr-3">
+              {{ isEditing ? 'mdi-clipboard-edit' : 'mdi-clipboard-plus' }}
+            </v-icon>
+            <div>
+              <h3 class="text-h5 font-weight-bold">
+                {{ isEditing ? 'Modifier le formulaire' : 'Créer un formulaire' }}
+              </h3>
+              <p class="text-subtitle-1 text-medium-emphasis mb-0">
+                {{ isEditing ? 'Modifiez les paramètres du formulaire' : 'Configurez votre nouveau formulaire d\'évaluation' }}
+              </p>
+            </div>
+          </div>
         </v-card-title>
+        
+        <v-divider></v-divider>
         
         <v-card-text class="pa-6">
           <v-form ref="formRef" v-model="formIsValid">
             <v-row>
               <!-- Informations générales -->
               <v-col cols="12">
-                <h3 class="text-h6 mb-4">Informations générales</h3>
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-information</v-icon>
+                  Informations générales
+                </h4>
               </v-col>
               
               <v-col cols="12" md="8">
@@ -120,29 +287,75 @@
                   label="Titre du formulaire" 
                   prepend-inner-icon="mdi-format-title"
                   variant="outlined"
+                  density="comfortable"
                   :rules="[rules.required]"
+                  placeholder="Ex: Évaluation projet BUT3"
                   required
                 />
               </v-col>
               
               <v-col cols="12" md="4">
                 <v-select
-                  v-model="form.associationType"
-                  :items="[
-                    { title: 'Étudiants individuels', value: 'student' },
-                    { title: 'Groupes d\'étudiants', value: 'group' }
-                  ]"
-                  label="Entité à Evaluer"
-                  prepend-inner-icon="mdi-account-group"
+                  v-model="form.professor"
+                  :items="professors"
+                  label="Professeur responsable"
+                  prepend-inner-icon="mdi-account-tie"
                   variant="outlined"
+                  density="comfortable"
+                  item-title="fullName"
+                  item-value="_id"
                   :rules="[rules.required]"
-                  @update:model-value="onAssociationTypeChange"
+                  required
                 />
+              </v-col>
+
+              <!-- Type d'association -->
+              <v-col cols="12">
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-account-group</v-icon>
+                  Type d'évaluation
+                </h4>
+              </v-col>
+              
+              <v-col cols="12">
+                <v-radio-group
+                  v-model="form.associationType"
+                  inline
+                  @update:model-value="onAssociationTypeChange"
+                >
+                  <v-radio
+                    label="Évaluation individuelle"
+                    value="student"
+                    color="primary"
+                  >
+                    <template v-slot:label>
+                      <div class="d-flex align-center">
+                        <v-icon class="mr-2">mdi-account</v-icon>
+                        <span>Évaluation individuelle</span>
+                      </div>
+                    </template>
+                  </v-radio>
+                  <v-radio
+                    label="Évaluation par groupe"
+                    value="group"
+                    color="primary"
+                  >
+                    <template v-slot:label>
+                      <div class="d-flex align-center">
+                        <v-icon class="mr-2">mdi-account-group</v-icon>
+                        <span>Évaluation par groupe</span>
+                      </div>
+                    </template>
+                  </v-radio>
+                </v-radio-group>
               </v-col>
 
               <!-- Période de validité -->
               <v-col cols="12">
-                <h3 class="text-h6 mb-4">Période de validité</h3>
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-calendar-range</v-icon>
+                  Période de validité
+                </h4>
               </v-col>
               
               <v-col cols="12" md="6">
@@ -152,6 +365,7 @@
                   type="datetime-local"
                   prepend-inner-icon="mdi-calendar-start"
                   variant="outlined"
+                  density="comfortable"
                   :rules="[rules.required]"
                 />
               </v-col>
@@ -163,323 +377,279 @@
                   type="datetime-local"
                   prepend-inner-icon="mdi-calendar-end"
                   variant="outlined"
-                  :rules="[rules.required]"
+                  density="comfortable"
+                  :rules="[rules.required, rules.validToAfterFrom]"
                 />
               </v-col>
 
-              <!-- Association aux étudiants (si type student) -->
+              <!-- Association aux étudiants -->
               <v-col cols="12" v-if="form.associationType === 'student'">
-                <h3 class="text-h6 mb-4">Association aux étudiants</h3>
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-account-multiple</v-icon>
+                  Sélection des étudiants
+                </h4>
                 
-                <v-row>
-                  <!-- Étudiants disponibles -->
-                  <v-col cols="12" md="5">
-                    <v-card variant="outlined">
-                      <v-card-title class="text-subtitle-1 pa-3">
-                        Étudiants disponibles
-                        <v-spacer></v-spacer>
-                        <v-chip size="small">{{ availableStudents.length }}</v-chip>
-                      </v-card-title>
-                      
-                      <v-card-text class="pa-2">
-                        <!-- Filtres pour les étudiants disponibles -->
-                        <v-row dense class="mb-2">
-                          <v-col cols="6">
-                            <v-select
-                              v-model="studentFilters.year"
-                              :items="['', 'BUT1', 'BUT2', 'BUT3']"
-                              label="Année"
-                              density="compact"
-                              variant="outlined"
-                              clearable
-                              @update:model-value="filterAvailableStudents"
-                            />
-                          </v-col>
-                          <v-col cols="6">
-                            <v-select
-                              v-model="studentFilters.group"
-                              :items="availableGroups"
-                              label="Groupe"
-                              density="compact"
-                              variant="outlined"
-                              clearable
-                              @update:model-value="filterAvailableStudents"
-                            />
-                          </v-col>
-                        </v-row>
-                        
-                        <v-text-field
-                          v-model="studentFilters.search"
-                          label="Rechercher un étudiant"
-                          prepend-inner-icon="mdi-magnify"
-                          density="compact"
-                          variant="outlined"
-                          hide-details
-                          class="mb-2"
-                          @input="filterAvailableStudents"
-                        />
-                        
-                        <div class="student-list">
-                          <v-list density="compact" max-height="300" style="overflow-y: auto;">
-                            <v-list-item
-                              v-for="student in filteredAvailableStudents"
-                              :key="student._id"
-                              @click="addStudentToForm(student)"
-                              class="student-item"
-                            >
-                              <v-list-item-title class="text-body-2">
-                                {{ student.firstName }} {{ student.lastName }}
-                              </v-list-item-title>
-                              <v-list-item-subtitle class="text-caption">
-                                {{ student.year }} - {{ student.group }}
-                              </v-list-item-subtitle>
-                              <template v-slot:append>
-                                <v-btn icon size="small" variant="text" color="primary">
-                                  <v-icon size="small">mdi-plus</v-icon>
-                                </v-btn>
-                              </template>
-                            </v-list-item>
-                          </v-list>
-                        </div>
-                      </v-card-text>
-                    </v-card>
-                  </v-col>
-                  
-                  <!-- Boutons de transfert -->
-                  <v-col cols="12" md="2" class="d-flex flex-column justify-center align-center">
-                    <v-btn
-                      color="primary"
-                      icon
-                      class="mb-2"
-                      @click="addAllStudents"
-                      :disabled="filteredAvailableStudents.length === 0"
+                <v-select
+                  v-model="form.students"
+                  :items="availableStudents"
+                  label="Étudiants à évaluer"
+                  prepend-inner-icon="mdi-account-multiple"
+                  variant="outlined"
+                  density="comfortable"
+                  item-title="fullName"
+                  item-value="_id"
+                  multiple
+                  chips
+                  closable-chips
+                  :rules="[rules.required, rules.minStudents]"
+                  hint="Sélectionnez les étudiants qui seront évalués"
+                  persistent-hint
+                >
+                  <template v-slot:selection="{ item, index }">
+                    <v-chip
+                      v-if="index < 3"
+                      :key="item.raw._id"
+                      size="small"
+                      closable
+                      @click:close="removeStudent(item.raw._id)"
                     >
-                      <v-icon>mdi-chevron-double-right</v-icon>
-                    </v-btn>
-                    <v-btn
-                      color="secondary"
-                      icon
-                      @click="removeAllStudents"
-                      :disabled="form.students.length === 0"
+                      {{ item.raw.firstName }} {{ item.raw.lastName }}
+                    </v-chip>
+                    <span
+                      v-if="index === 3"
+                      class="text-grey text-caption align-self-center"
                     >
-                      <v-icon>mdi-chevron-double-left</v-icon>
-                    </v-btn>
-                  </v-col>
-                  
-                  <!-- Étudiants sélectionnés -->
-                  <v-col cols="12" md="5">
-                    <v-card variant="outlined">
-                      <v-card-title class="text-subtitle-1 pa-3">
-                        Étudiants sélectionnés
-                        <v-spacer></v-spacer>
-                        <v-chip size="small" color="primary">{{ form.students.length }}</v-chip>
-                      </v-card-title>
-                      
-                      <v-card-text class="pa-2">
-                        <v-text-field
-                          v-model="selectedStudentSearch"
-                          label="Rechercher dans la sélection"
-                          prepend-inner-icon="mdi-magnify"
-                          density="compact"
-                          variant="outlined"
-                          hide-details
-                          class="mb-2"
-                        />
-                        
-                        <div class="student-list">
-                          <v-list density="compact" max-height="300" style="overflow-y: auto;">
-                            <v-list-item
-                              v-for="student in filteredSelectedStudents"
-                              :key="student._id"
-                              @click="removeStudentFromForm(student)"
-                              class="student-item"
-                            >
-                              <v-list-item-title class="text-body-2">
-                                {{ student.firstName }} {{ student.lastName }}
-                              </v-list-item-title>
-                              <v-list-item-subtitle class="text-caption">
-                                {{ student.year }} - {{ student.group }}
-                              </v-list-item-subtitle>
-                              <template v-slot:append>
-                                <v-btn icon size="small" variant="text" color="error">
-                                  <v-icon size="small">mdi-minus</v-icon>
-                                </v-btn>
-                              </template>
-                            </v-list-item>
-                          </v-list>
-                        </div>
-                      </v-card-text>
-                    </v-card>
-                  </v-col>
-                </v-row>
+                      (+{{ form.students.length - 3 }} autres)
+                    </span>
+                  </template>
+                </v-select>
               </v-col>
 
-              <!-- Association aux groupes (si type group) -->
+              <!-- Association aux groupes -->
               <v-col cols="12" v-if="form.associationType === 'group'">
-                <h3 class="text-h6 mb-4">Configuration des groupes</h3>
-                <v-text-field
-                  v-model.number="form.groupCount"
-                  label="Nombre de groupes à évaluer"
-                  type="number"
-                  min="1"
-                  max="50"
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-account-group</v-icon>
+                  Sélection des groupes
+                </h4>
+                
+                <v-select
+                  v-model="form.groups"
+                  :items="availableGroups"
+                  label="Groupes à évaluer"
                   prepend-inner-icon="mdi-account-group"
                   variant="outlined"
-                  :rules="[rules.required, rules.isNumber, rules.minGroups]"
-                  hint="Spécifiez le nombre de groupes qui seront évalués avec ce formulaire"
+                  density="comfortable"
+                  item-title="name"
+                  item-value="_id"
+                  multiple
+                  chips
+                  closable-chips
+                  :rules="[rules.required, rules.minGroups]"
+                  hint="Sélectionnez les groupes qui seront évalués"
                   persistent-hint
-                />
+                >
+                  <template v-slot:selection="{ item, index }">
+                    <v-chip
+                      v-if="index < 3"
+                      :key="item.raw._id"
+                      size="small"
+                      closable
+                      @click:close="removeGroup(item.raw._id)"
+                    >
+                      {{ item.raw.name }}
+                    </v-chip>
+                    <span
+                      v-if="index === 3"
+                      class="text-grey text-caption align-self-center"
+                    >
+                      (+{{ form.groups.length - 3 }} autres)
+                    </span>
+                  </template>
+                </v-select>
               </v-col>
 
               <!-- Sections du formulaire -->
               <v-col cols="12">
-                <h3 class="text-h6 mb-4">Sections d'évaluation</h3>
+                <div class="d-flex align-center justify-space-between mb-3">
+                  <h4 class="text-h6 font-weight-medium">
+                    <v-icon color="primary" class="mr-2">mdi-view-list</v-icon>
+                    Sections d'évaluation
+                  </h4>
+                  <v-btn
+                    color="primary"
+                    variant="outlined"
+                    size="small"
+                    @click="addSection"
+                    prepend-icon="mdi-plus"
+                  >
+                    Ajouter une section
+                  </v-btn>
+                </div>
                 
-                <v-expansion-panels v-model="expanded" multiple>
+                <v-expansion-panels v-model="expanded" multiple variant="accordion">
                   <v-expansion-panel
                     v-for="(section, sectionIndex) in form.sections"
                     :key="sectionIndex"
+                    class="mb-2"
                   >
                     <v-expansion-panel-title>
-                      <div class="d-flex align-center">
-                        <v-icon class="mr-2">mdi-folder-outline</v-icon>
-                        {{ section.title || `Section ${sectionIndex + 1}` }}
-                        <v-spacer></v-spacer>
-                        <v-chip size="small" class="mr-2">{{ section.lines.length }} critères</v-chip>
+                      <div class="d-flex align-center w-100">
+                        <v-icon class="mr-3">mdi-folder-outline</v-icon>
+                        <div class="flex-grow-1">
+                          <div class="font-weight-medium">{{ section.title || `Section ${sectionIndex + 1}` }}</div>
+                          <div class="text-caption text-medium-emphasis">
+                            {{ section.lines.length }} critère{{ section.lines.length > 1 ? 's' : '' }}
+                          </div>
+                        </div>
+                        <v-btn
+                          icon="mdi-delete"
+                          variant="text"
+                          color="error"
+                          size="small"
+                          @click.stop="removeSection(sectionIndex)"
+                        >
+                          <v-icon size="small">mdi-delete</v-icon>
+                          <v-tooltip activator="parent" location="top">Supprimer la section</v-tooltip>
+                        </v-btn>
                       </div>
                     </v-expansion-panel-title>
                     
                     <v-expansion-panel-text>
-                      <v-card flat>
-                        <v-card-text>
-                          <v-row>
-                            <v-col cols="12" md="8">
-                              <v-text-field
-                                v-model="section.title"
-                                label="Titre de la section"
-                                prepend-inner-icon="mdi-format-title"
-                                variant="outlined"
-                                :rules="[rules.required]"
-                              />
-                            </v-col>
-                            <v-col cols="12" md="4" class="d-flex align-center">
-                              <v-btn
-                                color="success"
-                                prepend-icon="mdi-plus"
-                                @click="addLine(section)"
-                                class="mr-2"
-                              >
-                                Ajouter un critère
-                              </v-btn>
-                              <v-btn
-                                color="error"
-                                icon
-                                @click="removeSection(sectionIndex)"
-                                :disabled="form.sections.length === 1"
-                              >
-                                <v-icon>mdi-delete</v-icon>
-                              </v-btn>
-                            </v-col>
-                          </v-row>
-
-                          <!-- Lignes de critères -->
-                          <div v-if="section.lines.length > 0" class="mt-4">
-                            <h4 class="text-subtitle-1 mb-3">Critères d'évaluation</h4>
-                            <v-row
-                              v-for="(line, lineIndex) in section.lines"
-                              :key="lineIndex"
-                              class="mb-3"
+                      <v-row>
+                        <v-col cols="12">
+                          <v-text-field
+                            v-model="section.title"
+                            label="Titre de la section"
+                            prepend-inner-icon="mdi-format-title"
+                            variant="outlined"
+                            density="comfortable"
+                            :rules="[rules.required]"
+                            placeholder="Ex: Qualité du code"
+                          />
+                        </v-col>
+                        
+                        <!-- Lignes de la section -->
+                        <v-col cols="12">
+                          <div class="d-flex align-center justify-space-between mb-3">
+                            <h5 class="text-subtitle-1 font-weight-medium">Critères d'évaluation</h5>
+                            <v-btn
+                              color="secondary"
+                              variant="outlined"
+                              size="small"
+                              @click="addLine(sectionIndex)"
+                              prepend-icon="mdi-plus"
                             >
-                              <v-col cols="12" md="6">
-                                <v-text-field
-                                  v-model="line.title"
-                                  :label="`Critère ${lineIndex + 1}`"
-                                  prepend-inner-icon="mdi-checkbox-marked-circle-outline"
-                                  variant="outlined"
-                                  :rules="[rules.required]"
-                                />
-                              </v-col>
-                              <v-col cols="12" md="2">
-                                <v-select
-                                  v-model="line.type"
-                                  :items="[
-                                    { title: 'Oui/Non', value: 'binary' },
-                                    { title: 'Échelle 0-8', value: 'scale' }
-                                  ]"
-                                  label="Type de notation"
-                                  variant="outlined"
-                                  :rules="[rules.required]"
-                                  @update:model-value="updateMaxScore(line)"
-                                />
-                              </v-col>
-                              <v-col cols="12" md="2">
-                                <v-text-field
-                                  v-model.number="line.maxScore"
-                                  label="Score max"
-                                  type="number"
-                                  variant="outlined"
-                                  :rules="[rules.required, rules.isNumber]"
-                                  :readonly="line.type === 'binary'"
-                                />
-                              </v-col>
-                              <v-col cols="12" md="2" class="d-flex align-center">
-                                <v-btn
-                                  color="error"
-                                  icon
-                                  @click="removeLine(section, lineIndex)"
-                                  :disabled="section.lines.length === 1"
-                                >
-                                  <v-icon>mdi-delete</v-icon>
-                                </v-btn>
-                              </v-col>
-                            </v-row>
+                              Ajouter un critère
+                            </v-btn>
                           </div>
                           
-                          <v-alert
-                            v-if="section.lines.length === 0"
-                            type="info"
-                            variant="tonal"
-                            class="mt-4"
+                          <v-card
+                            v-for="(line, lineIndex) in section.lines"
+                            :key="lineIndex"
+                            class="mb-3"
+                            variant="outlined"
                           >
-                            Cette section ne contient aucun critère. Ajoutez au moins un critère d'évaluation.
-                          </v-alert>
-                        </v-card-text>
-                      </v-card>
+                            <v-card-text class="pa-4">
+                              <v-row>
+                                <v-col cols="12" md="6">
+                                  <v-text-field
+                                    v-model="line.title"
+                                    label="Titre du critère"
+                                    prepend-inner-icon="mdi-star"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    :rules="[rules.required]"
+                                    placeholder="Ex: Lisibilité du code"
+                                  />
+                                </v-col>
+                                
+                                <v-col cols="12" md="3">
+                                  <v-select
+                                    v-model="line.type"
+                                    :items="lineTypes"
+                                    label="Type d'évaluation"
+                                    prepend-inner-icon="mdi-format-list-bulleted"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    :rules="[rules.required]"
+                                    @update:model-value="onLineTypeChange(line)"
+                                  />
+                                </v-col>
+                                
+                                <v-col cols="12" md="2">
+                                  <v-text-field
+                                    v-model.number="line.maxScore"
+                                    label="Score max"
+                                    prepend-inner-icon="mdi-numeric"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    type="number"
+                                    :min="line.type === 'binary' ? 1 : 0"
+                                    :max="line.type === 'scale' ? 8 : 100"
+                                    :rules="[rules.required, rules.isNumber, ...getScoreRules(line.type)]"
+                                    :readonly="line.type === 'binary'"
+                                  />
+                                </v-col>
+                                
+                                <v-col cols="12" md="1">
+                                  <v-btn
+                                    icon="mdi-delete"
+                                    variant="text"
+                                    color="error"
+                                    @click="removeLine(sectionIndex, lineIndex)"
+                                  >
+                                    <v-icon>mdi-delete</v-icon>
+                                    <v-tooltip activator="parent" location="top">Supprimer le critère</v-tooltip>
+                                  </v-btn>
+                                </v-col>
+                                
+                                <v-col cols="12">
+                                  <v-select
+                                    v-model="line.notationType"
+                                    :items="notationTypes"
+                                    label="Type de notation"
+                                    prepend-inner-icon="mdi-account-group"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    :rules="[rules.required]"
+                                    hint="Définit comment les notes seront attribuées"
+                                    persistent-hint
+                                  />
+                                </v-col>
+                              </v-row>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+                      </v-row>
                     </v-expansion-panel-text>
                   </v-expansion-panel>
                 </v-expansion-panels>
-
-                <v-btn 
-                  class="mt-4" 
-                  color="primary" 
-                  prepend-icon="mdi-plus"
-                  @click="addSection"
-                  variant="outlined"
-                >
-                  Ajouter une section
-                </v-btn>
               </v-col>
             </v-row>
           </v-form>
         </v-card-text>
-
+        
         <v-divider></v-divider>
         
-        <v-card-actions class="pa-4">
+        <v-card-actions class="pa-6">
           <v-spacer></v-spacer>
           <v-btn 
-            variant="text" 
+            color="grey-darken-1" 
+            variant="text"
             @click="closeDialog"
+            prepend-icon="mdi-close"
           >
             Annuler
           </v-btn>
           <v-btn 
             color="primary" 
-            @click="submitForm"
+            variant="elevated"
+            @click="saveForm" 
+            :disabled="!formIsValid"
             :loading="saving"
-            :disabled="!formIsValid || !isFormComplete"
+            prepend-icon="mdi-check"
           >
-            {{ form.id ? 'Modifier' : 'Créer' }} le formulaire
+            {{ isEditing ? 'Modifier' : 'Créer' }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -511,137 +681,196 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
-import { authService } from '../services/api.js';
+import { ref, onMounted, computed } from 'vue';
 
-// State des formulaires
-const forms = ref([]);
-const filteredForms = ref([]);
+// État de la page
 const loading = ref(false);
 const saving = ref(false);
-
-// State du dialog
-const dialog = ref(false);
-const deleteDialog = ref(false);
-const dialogTitle = ref('Créer un formulaire');
-const expanded = ref([]);
-
-// State des notifications
-const snackbar = ref({ show: false, text: '', color: 'success' });
-
-// State de recherche et filtres
+const forms = ref([]);
+const filteredForms = ref([]);
 const search = ref('');
-const filterValidFrom = ref('');
-const filterValidTo = ref('');
+const selectedAssociationType = ref(null);
+const selectedStatus = ref(null);
 
-// State des étudiants
-const allStudents = ref([]);
-const availableStudents = ref([]);
-const studentFilters = ref({
-  year: '',
-  group: '',
-  search: ''
+// Pagination
+const pagination = ref({
+  page: 1,
+  limit: 10,
+  total: 0,
+  pages: 0,
+  hasNextPage: false,
+  hasPrevPage: false
 });
-const selectedStudentSearch = ref('');
 
-// State du formulaire
+// Options pour les filtres
+const associationTypeOptions = ref([
+  { title: 'Étudiants', value: 'student' },
+  { title: 'Groupes', value: 'group' }
+]);
+
+const statusOptions = ref([
+  { title: 'Actif', value: 'active' },
+  { title: 'Expiré', value: 'expired' },
+  { title: 'À venir', value: 'upcoming' }
+]);
+
+// Données pour les formulaires
+const professors = ref([]);
+const availableStudents = ref([]);
+const availableGroups = ref([]);
+
+// État du dialogue
+const dialog = ref(false);
+const isEditing = ref(false);
 const formRef = ref(null);
 const formIsValid = ref(false);
-const formToDelete = ref(null);
+const expanded = ref([]);
 
+// Modèle de formulaire
 const form = ref({
-  id: null,
   title: '',
-  associationType: '',
+  professor: '',
+  associationType: 'student',
   students: [],
-  groupCount: 0,
+  groups: [],
   sections: [],
   validFrom: '',
-  validTo: '',
+  validTo: ''
 });
 
-// Headers pour la table
-const headers = [
-  { title: 'Titre', key: 'title', sortable: true },
-  { title: "Type d'association", key: 'associationType', sortable: true },
-  { title: 'Valide à partir de', key: 'validFrom', sortable: true },
-  { title: 'Valide jusqu\'à', key: 'validTo', sortable: true },
-  { title: 'Actions', key: 'actions', sortable: false, width: '150px' },
-];
+// Types de lignes et notations
+const lineTypes = ref([
+  { title: 'Binaire (Oui/Non)', value: 'binary' },
+  { title: 'Échelle (0-8)', value: 'scale' }
+]);
+
+const notationTypes = ref([
+  { title: 'Commune', value: 'common' },
+  { title: 'Individuelle', value: 'individual' },
+  { title: 'Mixte', value: 'mixed' }
+]);
+
+// En-têtes du tableau
+const headers = ref([
+  { title: 'Formulaire', align: 'start', key: 'title', sortable: false },
+  { title: 'Professeur', align: 'start', key: 'professor' },
+  { title: 'Type', align: 'start', key: 'associationType' },
+  { title: 'Cibles', align: 'start', key: 'targets' },
+  { title: 'Validité', align: 'start', key: 'validity' },
+  { title: 'Statut', align: 'start', key: 'status' },
+  { title: 'Actions', align: 'end', key: 'actions', sortable: false }
+]);
+
+// Dialogue de suppression
+const deleteDialog = ref(false);
+const formToDelete = ref(null);
+
+// Notifications
+const snackbar = ref({
+  show: false,
+  text: '',
+  color: 'success'
+});
 
 // Règles de validation
 const rules = {
   required: v => !!v || 'Ce champ est requis',
   isNumber: v => !isNaN(parseFloat(v)) && isFinite(v) || 'Doit être un nombre',
-  minGroups: v => v >= 1 || 'Au moins 1 groupe requis',
+  minStudents: v => v.length >= 1 || 'Au moins un étudiant requis',
+  minGroups: v => v.length >= 1 || 'Au moins un groupe requis',
+  validToAfterFrom: v => {
+    if (!form.value.validFrom || !v) return true;
+    return new Date(v) > new Date(form.value.validFrom) || 'La date de fin doit être postérieure à la date de début';
+  }
 };
 
-// Computed properties
-const currentUser = computed(() => authService.getCurrentUser());
-
-const availableGroups = computed(() => {
-  const groups = [...new Set(allStudents.value.map(s => s.group))];
-  return ['', ...groups.sort()];
-});
-
-const filteredAvailableStudents = computed(() => {
-  return availableStudents.value.filter(student => {
-    const matchesYear = !studentFilters.value.year || student.year === studentFilters.value.year;
-    const matchesGroup = !studentFilters.value.group || student.group === studentFilters.value.group;
-    const matchesSearch = !studentFilters.value.search || 
-      `${student.firstName} ${student.lastName}`.toLowerCase().includes(studentFilters.value.search.toLowerCase());
-    return matchesYear && matchesGroup && matchesSearch;
-  });
-});
-
-const filteredSelectedStudents = computed(() => {
-  if (!selectedStudentSearch.value) return form.value.students;
-  return form.value.students.filter(student => 
-    `${student.firstName} ${student.lastName}`.toLowerCase().includes(selectedStudentSearch.value.toLowerCase())
-  );
-});
-
-const isFormComplete = computed(() => {
-  if (!form.value.title || !form.value.associationType || !form.value.validFrom || !form.value.validTo) {
-    return false;
-  }
-  
-  if (form.value.associationType === 'student' && form.value.students.length === 0) {
-    return false;
-  }
-  
-  if (form.value.associationType === 'group' && form.value.groupCount < 1) {
-    return false;
-  }
-  
-  if (form.value.sections.length === 0) {
-    return false;
-  }
-  
-  return form.value.sections.every(section => 
-    section.title && section.lines.length > 0 && 
-    section.lines.every(line => line.title && line.type && line.maxScore)
-  );
+// Chargement des données au montage
+onMounted(async () => {
+  await loadProfessors();
+  await loadStudents();
+  await loadGroups();
+  await loadForms();
 });
 
 // Méthodes utilitaires
+const getSectionsCount = (item) => {
+  return item.sections?.length || 0;
+};
+
+const getStatusColor = (item) => {
+  const now = new Date();
+  const validFrom = new Date(item.validFrom);
+  const validTo = new Date(item.validTo);
+  
+  if (now < validFrom) return 'warning';
+  if (now > validTo) return 'error';
+  return 'success';
+};
+
+const getStatusIcon = (item) => {
+  const now = new Date();
+  const validFrom = new Date(item.validFrom);
+  const validTo = new Date(item.validTo);
+  
+  if (now < validFrom) return 'mdi-clock-outline';
+  if (now > validTo) return 'mdi-clock-alert';
+  return 'mdi-check-circle';
+};
+
+const getStatusText = (item) => {
+  const now = new Date();
+  const validFrom = new Date(item.validFrom);
+  const validTo = new Date(item.validTo);
+  
+  if (now < validFrom) return 'À venir';
+  if (now > validTo) return 'Expiré';
+  return 'Actif';
+};
+
 const formatDate = (dateString) => {
   if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('fr-FR', {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('fr-FR', {
     year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
+    month: 'short',
+    day: 'numeric'
   });
 };
 
-const showNotification = (message, color = 'success') => {
-  snackbar.value = { show: true, text: message, color };
+const getScoreRules = (type) => {
+  if (type === 'binary') {
+    return [v => v === 1 || 'Le score pour un type binaire doit être 1'];
+  } else if (type === 'scale') {
+    return [
+      v => v >= 0 || 'Le score minimum est 0',
+      v => v <= 8 || 'Le score maximum est 8'
+    ];
+  }
+  return [];
 };
 
-// Gestion des étudiants
-const fetchStudents = async () => {
+// Méthodes de chargement des données
+const loadProfessors = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/users?role=professor', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      professors.value = (data.users || data || []).map(user => ({
+        ...user,
+        fullName: `${user.firstName} ${user.lastName}`
+      }));
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des professeurs:', error);
+  }
+};
+
+const loadStudents = async () => {
   try {
     const response = await fetch('http://localhost:5000/api/students/list', {
       headers: {
@@ -649,144 +878,103 @@ const fetchStudents = async () => {
       }
     });
     
-    if (!response.ok) throw new Error('Erreur lors du chargement des étudiants');
-    
-    const data = await response.json();
-    allStudents.value = data;
-    updateAvailableStudents();
+    if (response.ok) {
+      const data = await response.json();
+      availableStudents.value = (data.students || data || []).map(student => ({
+        ...student,
+        fullName: `${student.firstName} ${student.lastName}`
+      }));
+    }
   } catch (error) {
     console.error('Erreur lors du chargement des étudiants:', error);
-    showNotification('Erreur lors du chargement des étudiants', 'error');
   }
 };
 
-const updateAvailableStudents = () => {
-  const selectedIds = form.value.students.map(s => s._id);
-  availableStudents.value = allStudents.value.filter(s => !selectedIds.includes(s._id));
-};
-
-const filterAvailableStudents = () => {
-  // La logique de filtrage est dans le computed filteredAvailableStudents
-};
-
-const addStudentToForm = (student) => {
-  if (!form.value.students.find(s => s._id === student._id)) {
-    form.value.students.push(student);
-    updateAvailableStudents();
-  }
-};
-
-const removeStudentFromForm = (student) => {
-  const index = form.value.students.findIndex(s => s._id === student._id);
-  if (index > -1) {
-    form.value.students.splice(index, 1);
-    updateAvailableStudents();
-  }
-};
-
-const addAllStudents = () => {
-  filteredAvailableStudents.value.forEach(student => {
-    if (!form.value.students.find(s => s._id === student._id)) {
-      form.value.students.push(student);
-    }
-  });
-  updateAvailableStudents();
-};
-
-const removeAllStudents = () => {
-  form.value.students = [];
-  updateAvailableStudents();
-};
-
-// Gestion des sections et lignes
-const addSection = () => {
-  form.value.sections.push({ 
-    title: '', 
-    lines: [{ title: '', type: 'binary', maxScore: 1 }] 
-  });
-};
-
-const removeSection = (index) => {
-  if (form.value.sections.length > 1) {
-    form.value.sections.splice(index, 1);
-  }
-};
-
-const addLine = (section) => {
-  section.lines.push({ title: '', type: 'binary', maxScore: 1 });
-};
-
-const removeLine = (section, lineIndex) => {
-  if (section.lines.length > 1) {
-    section.lines.splice(lineIndex, 1);
-  }
-};
-
-const updateMaxScore = (line) => {
-  if (line.type === 'binary') {
-    line.maxScore = 1;
-  } else if (line.type === 'scale') {
-    line.maxScore = 8;
-  }
-};
-
-// Gestion du type d'association
-const onAssociationTypeChange = () => {
-  if (form.value.associationType === 'student') {
-    form.value.groupCount = 0;
-    form.value.students = [];
-    updateAvailableStudents();
-  } else if (form.value.associationType === 'group') {
-    form.value.students = [];
-    form.value.groupCount = 1;
-  }
-};
-
-// Gestion des formulaires
-const fetchForms = async () => {
-  loading.value = true;
+const loadGroups = async () => {
   try {
-    const response = await fetch('http://localhost:5000/api/forms/list', {
+    const response = await fetch('http://localhost:5000/api/groups', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
     
-    if (!response.ok) throw new Error('Erreur lors du chargement des formulaires');
-    
-    const data = await response.json();
-    forms.value = data;
-    filteredForms.value = data;
+    if (response.ok) {
+      const data = await response.json();
+      availableGroups.value = data.groups || data || [];
+    }
   } catch (error) {
-    console.error('Erreur lors du chargement des formulaires:', error);
-    showNotification('Erreur lors du chargement des formulaires', 'error');
+    console.error('Erreur lors du chargement des groupes:', error);
+  }
+};
+
+const loadForms = async () => {
+  loading.value = true;
+  try {
+    const queryParams = new URLSearchParams();
+    queryParams.append('page', pagination.value.page);
+    queryParams.append('limit', pagination.value.limit);
+    
+    if (selectedAssociationType.value) {
+      queryParams.append('associationType', selectedAssociationType.value);
+    }
+
+    const response = await fetch(`http://localhost:5000/api/forms?${queryParams.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors du chargement des formulaires');
+    }
+
+    const data = await response.json();
+    forms.value = data.forms || [];
+    filteredForms.value = forms.value;
+    
+    if (data.pagination) {
+      pagination.value = data.pagination;
+    }
+  } catch (error) {
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors du chargement des formulaires',
+      color: 'error'
+    };
   } finally {
     loading.value = false;
   }
 };
 
+const handleTableOptions = (options) => {
+  pagination.value.page = options.page;
+  pagination.value.limit = options.itemsPerPage;
+  loadForms();
+};
+
 const filterForms = () => {
   filteredForms.value = forms.value.filter(form => {
     const matchesSearch = search.value === '' || 
-      form.title.toLowerCase().includes(search.value.toLowerCase()) ||
-      form.associationType.toLowerCase().includes(search.value.toLowerCase());
-
-    const matchesValidFrom = filterValidFrom.value === '' || 
-      new Date(form.validFrom) >= new Date(filterValidFrom.value);
-
-    const matchesValidTo = filterValidTo.value === '' || 
-      new Date(form.validTo) <= new Date(filterValidTo.value);
-
-    return matchesSearch && matchesValidFrom && matchesValidTo;
+      form.title?.toLowerCase().includes(search.value.toLowerCase()) ||
+      form.professor?.firstName?.toLowerCase().includes(search.value.toLowerCase()) ||
+      form.professor?.lastName?.toLowerCase().includes(search.value.toLowerCase());
+      
+    const matchesAssociationType = selectedAssociationType.value === null || 
+      form.associationType === selectedAssociationType.value;
+      
+    const matchesStatus = selectedStatus.value === null || 
+      getStatusText(form).toLowerCase() === selectedStatus.value.replace('active', 'actif').replace('expired', 'expiré').replace('upcoming', 'à venir');
+      
+    return matchesSearch && matchesAssociationType && matchesStatus;
   });
 };
 
-// Dialog management
+// Méthodes du dialogue
 const openDialog = () => {
-  dialog.value = true;
-  dialogTitle.value = 'Créer un formulaire';
   resetForm();
-  fetchStudents();
+  isEditing.value = false;
+  dialog.value = true;
 };
 
 const closeDialog = () => {
@@ -796,50 +984,81 @@ const closeDialog = () => {
 
 const resetForm = () => {
   form.value = {
-    id: null,
     title: '',
-    associationType: '',
+    professor: '',
+    associationType: 'student',
     students: [],
-    groupCount: 0,
-    sections: [{ title: '', lines: [{ title: '', type: 'binary', maxScore: 1 }] }],
+    groups: [],
+    sections: [],
     validFrom: '',
-    validTo: '',
+    validTo: ''
   };
-  expanded.value = [0];
-  studentFilters.value = { year: '', group: '', search: '' };
-  selectedStudentSearch.value = '';
-  updateAvailableStudents();
+  expanded.value = [];
+  isEditing.value = false;
 };
 
-const submitForm = async () => {
-  if (!formIsValid.value || !isFormComplete.value) return;
+const onAssociationTypeChange = () => {
+  form.value.students = [];
+  form.value.groups = [];
+};
+
+const onLineTypeChange = (line) => {
+  if (line.type === 'binary') {
+    line.maxScore = 1;
+  } else if (line.type === 'scale') {
+    line.maxScore = 8;
+  }
+};
+
+const removeStudent = (studentId) => {
+  form.value.students = form.value.students.filter(id => id !== studentId);
+};
+
+const removeGroup = (groupId) => {
+  form.value.groups = form.value.groups.filter(id => id !== groupId);
+};
+
+// Méthodes de gestion des sections
+const addSection = () => {
+  form.value.sections.push({
+    title: '',
+    lines: []
+  });
+  expanded.value.push(form.value.sections.length - 1);
+};
+
+const removeSection = (sectionIndex) => {
+  form.value.sections.splice(sectionIndex, 1);
+  expanded.value = expanded.value.filter(i => i !== sectionIndex).map(i => i > sectionIndex ? i - 1 : i);
+};
+
+const addLine = (sectionIndex) => {
+  form.value.sections[sectionIndex].lines.push({
+    title: '',
+    maxScore: 1,
+    type: 'binary',
+    notationType: 'common'
+  });
+};
+
+const removeLine = (sectionIndex, lineIndex) => {
+  form.value.sections[sectionIndex].lines.splice(lineIndex, 1);
+};
+
+// Méthodes CRUD
+const saveForm = async () => {
+  if (!formRef.value) return;
   
+  const { valid } = await formRef.value.validate();
+  if (!valid) return;
+
   saving.value = true;
   try {
-    const user = authService.getCurrentUser();
-    const payload = {
-      professor: user.id,
-      title: form.value.title,
-      associationType: form.value.associationType,
-      students: form.value.students.map(s => s._id),
-      groupCount: form.value.groupCount,
-      sections: form.value.sections.map(section => ({
-        title: section.title,
-        lines: section.lines.map(line => ({
-          title: line.title,
-          maxScore: line.maxScore,
-          type: line.type,
-        })),
-      })),
-      validFrom: new Date(form.value.validFrom).toISOString(),
-      validTo: new Date(form.value.validTo).toISOString(),
-    };
-
-    const url = form.value.id 
-      ? `http://localhost:5000/api/forms/update/${form.value.id}` 
+    const url = isEditing.value
+      ? `http://localhost:5000/api/forms/update/${form.value._id}`
       : 'http://localhost:5000/api/forms/add';
-    
-    const method = form.value.id ? 'PUT' : 'POST';
+
+    const method = isEditing.value ? 'PUT' : 'POST';
 
     const response = await fetch(url, {
       method: method,
@@ -847,84 +1066,104 @@ const submitForm = async () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(form.value)
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Erreur lors de ${form.value.id ? 'la modification' : 'la création'} du formulaire`);
+      throw new Error(`Erreur lors de l'${isEditing.value ? 'édition' : 'ajout'} du formulaire`);
     }
 
-    showNotification(`Formulaire ${form.value.id ? 'modifié' : 'créé'} avec succès`, 'success');
-    fetchForms();
+    snackbar.value = {
+      show: true,
+      text: `Formulaire ${isEditing.value ? 'modifié' : 'créé'} avec succès`,
+      color: 'success'
+    };
+
     closeDialog();
+    await loadForms();
   } catch (error) {
-    console.error('Erreur lors de la sauvegarde du formulaire:', error);
-    showNotification(error.message, 'error');
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: `Erreur lors de l'${isEditing.value ? 'édition' : 'ajout'} du formulaire`,
+      color: 'error'
+    };
   } finally {
     saving.value = false;
   }
 };
 
-const editForm = async (formToEdit) => {
-  await fetchStudents();
-  dialog.value = true;
-  dialogTitle.value = 'Modifier le formulaire';
+const viewForm = (item) => {
+  console.log('Voir formulaire:', item);
+  // Implémenter la vue détaillée si nécessaire
+};
+
+const editForm = (item) => {
+  isEditing.value = true;
+  form.value = { ...item };
   
-  // Deep copy du formulaire
-  form.value = {
-    id: formToEdit._id,
-    title: formToEdit.title,
-    associationType: formToEdit.associationType,
-    students: [], // Will be populated after fetching students
-    groupCount: formToEdit.groupCount || 0,
-    sections: JSON.parse(JSON.stringify(formToEdit.sections)),
-    validFrom: formToEdit.validFrom ? new Date(formToEdit.validFrom).toISOString().slice(0, 16) : '',
-    validTo: formToEdit.validTo ? new Date(formToEdit.validTo).toISOString().slice(0, 16) : '',
-  };
-  
-  // Populate selected students
-  if (formToEdit.students && formToEdit.students.length > 0) {
-    form.value.students = allStudents.value.filter(student => 
-      formToEdit.students.includes(student._id)
-    );
+  // Convertir les dates au format datetime-local
+  if (form.value.validFrom) {
+    form.value.validFrom = new Date(form.value.validFrom).toISOString().slice(0, 16);
+  }
+  if (form.value.validTo) {
+    form.value.validTo = new Date(form.value.validTo).toISOString().slice(0, 16);
   }
   
-  updateAvailableStudents();
-  expanded.value = form.value.sections.map((_, index) => index);
+  dialog.value = true;
 };
 
-const duplicateForm = async (formToDuplicate) => {
-  await fetchStudents();
-  dialog.value = true;
-  dialogTitle.value = 'Dupliquer le formulaire';
-  
-  form.value = {
-    id: null,
-    title: `${formToDuplicate.title} (Copie)`,
-    associationType: formToDuplicate.associationType,
-    students: [],
-    groupCount: formToDuplicate.groupCount || 0,
-    sections: JSON.parse(JSON.stringify(formToDuplicate.sections)),
-    validFrom: '',
-    validTo: '',
+const duplicateForm = async (item) => {
+  const duplicatedForm = {
+    ...item,
+    title: `${item.title} (copie)`,
+    validFrom: new Date().toISOString().slice(0, 16),
+    validTo: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
   };
   
-  updateAvailableStudents();
-  expanded.value = form.value.sections.map((_, index) => index);
+  delete duplicatedForm._id;
+  delete duplicatedForm.createdAt;
+  delete duplicatedForm.updatedAt;
+  
+  form.value = duplicatedForm;
+  isEditing.value = false;
+  dialog.value = true;
 };
 
-const confirmDeleteForm = (formItem) => {
-  formToDelete.value = formItem;
+const exportForm = async (item) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/forms/${item._id}/export`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${item.title}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'export:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors de l\'export',
+      color: 'error'
+    };
+  }
+};
+
+const confirmDeleteForm = (item) => {
+  formToDelete.value = item;
   deleteDialog.value = true;
 };
 
 const deleteForm = async () => {
-  if (!formToDelete.value || !formToDelete.value._id) {
-    showNotification('Erreur : Aucun formulaire valide à supprimer.', 'error');
-    deleteDialog.value = false;
-    return;
-  }
+  if (!formToDelete.value) return;
 
   try {
     const response = await fetch(`http://localhost:5000/api/forms/delete/${formToDelete.value._id}`, {
@@ -938,54 +1177,26 @@ const deleteForm = async () => {
       throw new Error('Erreur lors de la suppression du formulaire');
     }
 
-    showNotification('Formulaire supprimé avec succès', 'success');
+    snackbar.value = {
+      show: true,
+      text: 'Formulaire supprimé avec succès',
+      color: 'success'
+    };
+
     deleteDialog.value = false;
-    fetchForms();
+    await loadForms();
   } catch (error) {
-    console.error('Erreur lors de la suppression:', error);
-    showNotification('Erreur lors de la suppression du formulaire', 'error');
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors de la suppression du formulaire',
+      color: 'error'
+    };
   }
 };
-
-// Watchers
-watch([search, filterValidFrom, filterValidTo], () => {
-  filterForms();
-});
-
-watch(() => form.value.students, () => {
-  updateAvailableStudents();
-}, { deep: true });
-
-// Lifecycle
-onMounted(() => {
-  fetchForms();
-});
 </script>
 
 <style scoped>
-.student-list {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background-color: #fafafa;
-}
-
-.student-item {
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.student-item:hover {
-  background-color: #f0f0f0;
-}
-
-.v-expansion-panel-title {
-  background-color: #f8f9fa;
-}
-
-.v-expansion-panel-text {
-  background-color: #ffffff;
-}
-
 .v-card {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }

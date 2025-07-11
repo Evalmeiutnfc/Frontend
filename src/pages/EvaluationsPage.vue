@@ -1,21 +1,38 @@
 <template>
-  <v-container fluid>
-    <!-- En-tête de la page -->
-    <v-row>
+  <v-container fluid class="pa-4">
+    <!-- En-tête modernisé -->
+    <v-row class="mb-6">
       <v-col cols="12">
-        <div class="d-flex align-center justify-space-between mb-6">
-          <h2 class="text-h4">Évaluations</h2>
+        <div class="d-flex align-center justify-space-between">
+          <div>
+            <h1 class="text-h4 font-weight-bold mb-2">
+              <v-icon size="large" color="primary" class="mr-3">
+                mdi-clipboard-check
+              </v-icon>
+              Gestion des évaluations
+            </h1>
+            <p class="text-subtitle-1 text-medium-emphasis">
+              Créez et gérez vos évaluations basées sur les formulaires
+            </p>
+          </div>
           <div class="d-flex gap-2">
-            <v-btn 
-              color="success" 
+            <v-btn
+              color="success"
               variant="outlined"
-              prepend-icon="mdi-download" 
-              @click="exportAllEvaluationsCSV"
+              prepend-icon="mdi-download"
+              @click="exportAllEvaluations"
               :disabled="filteredEvaluations.length === 0"
             >
-              Exporter tout (CSV)
+              Exporter tout
             </v-btn>
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewEvaluationDialog">
+            <v-btn
+              color="primary"
+              size="large"
+              @click="openNewEvaluationDialog"
+              prepend-icon="mdi-plus"
+              variant="elevated"
+              class="text-h6"
+            >
               Nouvelle évaluation
             </v-btn>
           </div>
@@ -23,153 +40,220 @@
       </v-col>
     </v-row>
 
-    <!-- Section des évaluations existantes -->
     <v-row>
       <v-col cols="12">
-        <v-card class="mb-6">
-          <v-card-title class="d-flex align-center">
-            <v-icon class="mr-2">mdi-clipboard-list</v-icon>
-            Mes évaluations
-          </v-card-title>
-          <v-card-text>
-            <!-- Filtres -->
-            <v-row class="mb-4">
-              <v-col cols="12" sm="6" md="4">
+        <v-card class="rounded-lg elevation-3" color="surface">
+          <v-card-text class="pa-6">
+            <!-- Filtres et recherche -->
+            <v-row class="mb-6" align="center">
+              <v-col cols="12" md="3">
                 <v-text-field
-                  v-model="searchEvaluations"
+                  v-model="search"
                   label="Rechercher une évaluation"
+                  placeholder="Formulaire, étudiant..."
                   prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
                   density="comfortable"
                   hide-details
-                  variant="outlined"
                   @input="filterEvaluations"
+                  clearable
                 />
               </v-col>
-              <v-col cols="12" sm="6" md="4">
+              <v-col cols="12" md="3">
                 <v-select
-                  v-model="filterFormId"
+                  v-model="selectedForm"
                   :items="formOptions"
                   label="Filtrer par formulaire"
+                  variant="outlined"
                   density="comfortable"
                   hide-details
-                  variant="outlined"
-                  clearable
+                  prepend-inner-icon="mdi-clipboard-text"
                   @update:model-value="filterEvaluations"
+                  clearable
                 />
               </v-col>
-              <v-col cols="12" sm="6" md="4">
+              <v-col cols="12" md="3">
                 <v-select
-                  v-model="filterStatus"
-                  :items="[
-                    { title: 'Toutes', value: '' },
-                    { title: 'En cours', value: 'draft' },
-                    { title: 'Terminées', value: 'completed' }
-                  ]"
-                  label="Statut"
+                  v-model="selectedPromotion"
+                  :items="promotionOptions"
+                  label="Filtrer par promotion"
+                  variant="outlined"
                   density="comfortable"
                   hide-details
-                  variant="outlined"
+                  prepend-inner-icon="mdi-school"
                   @update:model-value="filterEvaluations"
+                  clearable
+                />
+              </v-col>
+              <v-col cols="12" md="3">
+                <v-select
+                  v-model="selectedGroup"
+                  :items="groupOptions"
+                  label="Filtrer par groupe"
+                  variant="outlined"
+                  density="comfortable"
+                  hide-details
+                  prepend-inner-icon="mdi-account-group"
+                  @update:model-value="filterEvaluations"
+                  clearable
                 />
               </v-col>
             </v-row>
 
-            <!-- Table des évaluations -->
+            <!-- Tableau des évaluations -->
             <v-data-table
-              :headers="evaluationHeaders"
+              :headers="headers"
               :items="filteredEvaluations"
-              :items-per-page="10"
+              :items-per-page="pagination.limit"
+              :page="pagination.page"
+              :server-items-length="pagination.total"
               class="elevation-1 rounded-lg"
-              :loading="loadingEvaluations"
+              :loading="loading"
+              loading-text="Chargement des évaluations..."
+              no-data-text="Aucune évaluation trouvée"
+              items-per-page-text="Évaluations par page"
+              @update:options="handleTableOptions"
             >
-              <template v-slot:item.formTitle="{ item }">
-                <div>
-                  <div class="font-weight-medium">{{ item.formTitle }}</div>
-                  <div class="text-caption text-medium-emphasis">{{ item.formId }}</div>
-                </div>
-              </template>
-
-              <template v-slot:item.evaluatedEntity="{ item }">
-                <v-chip
-                  :color="item.studentId ? 'primary' : 'secondary'"
-                  size="small"
-                >
-                  {{ item.studentId ? `${item.studentName}` : `Groupe ${item.groupNumber}` }}
-                </v-chip>
-              </template>
-
-              <template v-slot:item.progress="{ item }">
+              <!-- Formulaire -->
+              <template v-slot:item.form="{ item }">
                 <div class="d-flex align-center">
-                  <v-progress-linear
-                    :model-value="item.progress"
-                    :color="item.progress === 100 ? 'success' : 'primary'"
-                    height="6"
-                    rounded
-                    class="mr-2"
-                    style="min-width: 60px;"
-                  />
-                  <span class="text-caption">{{ item.progress }}%</span>
+                  <v-avatar color="primary" size="32" class="mr-3">
+                    <v-icon color="white">mdi-clipboard-text</v-icon>
+                  </v-avatar>
+                  <div>
+                    <div class="font-weight-medium">{{ item.form?.title }}</div>
+                    <div class="text-caption text-medium-emphasis">
+                      {{ item.form?.associationType === 'student' ? 'Individuelle' : 'Groupe' }}
+                    </div>
+                  </div>
                 </div>
               </template>
 
-              <template v-slot:item.createdAt="{ item }">
-                {{ formatDate(item.createdAt) }}
+              <!-- Cible de l'évaluation -->
+              <template v-slot:item.target="{ item }">
+                <div v-if="item.student">
+                  <v-chip
+                    color="green"
+                    size="small"
+                    variant="flat"
+                    prepend-icon="mdi-account"
+                    class="font-weight-medium"
+                  >
+                    {{ item.student.firstName }} {{ item.student.lastName }}
+                  </v-chip>
+                  <div class="text-caption text-medium-emphasis mt-1">
+                    N° {{ item.student.studentNumber }}
+                  </div>
+                </div>
+                <div v-else>
+                  <v-chip
+                    color="blue"
+                    size="small"
+                    variant="flat"
+                    prepend-icon="mdi-account-group"
+                    class="font-weight-medium"
+                  >
+                    Groupe {{ item.groupNumber }}
+                  </v-chip>
+                  <div class="text-caption text-medium-emphasis mt-1" v-if="item.subgroup">
+                    {{ item.subgroup }}
+                  </div>
+                </div>
               </template>
 
-              <template v-slot:item.updatedAt="{ item }">
+              <!-- Promotion/Groupe -->
+              <template v-slot:item.context="{ item }">
                 <div>
-                  {{ formatDate(item.updatedAt) }}
-                  <div v-if="item.updatedAt !== item.createdAt" class="text-caption text-medium-emphasis">
-                    (modifiée)
+                  <div v-if="item.promotion" class="text-body-2">
+                    <v-icon size="small" class="mr-1">mdi-school</v-icon>
+                    {{ item.promotion.name }}
+                  </div>
+                  <div v-if="item.group" class="text-caption text-medium-emphasis">
+                    <v-icon size="small" class="mr-1">mdi-account-group</v-icon>
+                    {{ item.group.name }}
                   </div>
                 </div>
               </template>
 
-              <template v-slot:item.actions="{ item }">
-                <v-btn
-                  icon
-                  variant="text"
-                  color="primary"
-                  @click="editEvaluation(item)"
-                  size="small"
-                >
-                  <v-icon>{{ item.progress === 100 ? 'mdi-eye' : 'mdi-pencil' }}</v-icon>
-                  <v-tooltip activator="parent" location="top">
-                    {{ item.progress === 100 ? 'Voir' : 'Continuer' }}
-                  </v-tooltip>
-                </v-btn>
-                <v-btn
-                  icon
-                  variant="text"
-                  color="success"
-                  @click="exportEvaluationCSV(item)"
-                  size="small"
-                  :disabled="item.progress === 0"
-                >
-                  <v-icon>mdi-download</v-icon>
-                  <v-tooltip activator="parent" location="top">
-                    {{ item.progress === 0 ? 'Aucune donnée à exporter' : 'Exporter CSV' }}
-                  </v-tooltip>
-                </v-btn>
-                <v-btn
-                  icon
-                  variant="text"
-                  color="error"
-                  @click="confirmDeleteEvaluation(item)"
-                  size="small"
-                >
-                  <v-icon>mdi-delete</v-icon>
-                  <v-tooltip activator="parent" location="top">Supprimer</v-tooltip>
-                </v-btn>
+              <!-- Scores -->
+              <template v-slot:item.scores="{ item }">
+                <div class="d-flex align-center">
+                  <v-progress-circular
+                    :model-value="getScorePercentage(item)"
+                    :color="getScoreColor(item)"
+                    :size="32"
+                    :width="3"
+                    class="mr-2"
+                  >
+                    <span class="text-caption">{{ item.scores?.length || 0 }}</span>
+                  </v-progress-circular>
+                  <div>
+                    <div class="text-body-2">{{ item.scores?.length || 0 }} critères</div>
+                    <div class="text-caption text-medium-emphasis">
+                      {{ getScorePercentage(item) }}% complété
+                    </div>
+                  </div>
+                </div>
               </template>
 
-              <template v-slot:no-data>
-                <div class="text-center pa-4">
-                  <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-clipboard-remove</v-icon>
-                  <div class="text-h6">Aucune évaluation</div>
-                  <div class="text-body-2 text-medium-emphasis">
-                    Commencez par créer une nouvelle évaluation
-                  </div>
+              <!-- Professeur -->
+              <template v-slot:item.professor="{ item }">
+                <div class="d-flex align-center">
+                  <v-icon size="small" color="primary" class="mr-2">mdi-account-tie</v-icon>
+                  <span>{{ item.professor?.firstName }} {{ item.professor?.lastName }}</span>
+                </div>
+              </template>
+
+              <!-- Date de création -->
+              <template v-slot:item.createdAt="{ item }">
+                <div class="text-caption">
+                  {{ formatDate(item.createdAt) }}
+                </div>
+              </template>
+
+              <!-- Actions -->
+              <template v-slot:item.actions="{ item }">
+                <div class="d-flex gap-1">
+                  <v-btn
+                    icon="mdi-eye"
+                    variant="text"
+                    color="info"
+                    size="small"
+                    @click="viewEvaluation(item)"
+                  >
+                    <v-icon size="small">mdi-eye</v-icon>
+                    <v-tooltip activator="parent" location="top">Voir les détails</v-tooltip>
+                  </v-btn>
+                  <v-btn
+                    icon="mdi-pencil"
+                    variant="text"
+                    color="primary"
+                    size="small"
+                    @click="editEvaluation(item)"
+                  >
+                    <v-icon size="small">mdi-pencil</v-icon>
+                    <v-tooltip activator="parent" location="top">Modifier</v-tooltip>
+                  </v-btn>
+                  <v-btn
+                    icon="mdi-download"
+                    variant="text"
+                    color="success"
+                    size="small"
+                    @click="exportEvaluation(item)"
+                  >
+                    <v-icon size="small">mdi-download</v-icon>
+                    <v-tooltip activator="parent" location="top">Exporter</v-tooltip>
+                  </v-btn>
+                  <v-btn
+                    icon="mdi-delete"
+                    variant="text"
+                    color="error"
+                    size="small"
+                    @click="confirmDeleteEvaluation(item)"
+                  >
+                    <v-icon size="small">mdi-delete</v-icon>
+                    <v-tooltip activator="parent" location="top">Supprimer</v-tooltip>
+                  </v-btn>
                 </div>
               </template>
             </v-data-table>
@@ -178,13 +262,24 @@
       </v-col>
     </v-row>
 
-    <!-- Dialog de sélection de formulaire pour nouvelle évaluation -->
-    <v-dialog v-model="selectFormDialog" max-width="600px">
-      <v-card>
-        <v-card-title class="text-h5 primary text-white pa-4">
-          <v-icon left color="white">mdi-clipboard-plus</v-icon>
-          Sélectionner un formulaire
+    <!-- Dialog de sélection de formulaire -->
+    <v-dialog v-model="selectFormDialog" max-width="700px">
+      <v-card class="rounded-lg">
+        <v-card-title class="pa-6 pb-4">
+          <div class="d-flex align-center">
+            <v-icon size="large" color="primary" class="mr-3">
+              mdi-clipboard-plus
+            </v-icon>
+            <div>
+              <h3 class="text-h5 font-weight-bold">Sélectionner un formulaire</h3>
+              <p class="text-subtitle-1 text-medium-emphasis mb-0">
+                Choisissez un formulaire pour créer une nouvelle évaluation
+              </p>
+            </div>
+          </div>
         </v-card-title>
+        
+        <v-divider></v-divider>
         
         <v-card-text class="pa-6">
           <v-text-field
@@ -192,13 +287,15 @@
             label="Rechercher un formulaire"
             prepend-inner-icon="mdi-magnify"
             variant="outlined"
+            density="comfortable"
             hide-details
             class="mb-4"
+            clearable
           />
           
-          <div v-if="loadingForms" class="text-center pa-4">
-            <v-progress-circular indeterminate color="primary" />
-            <div class="mt-2">Chargement des formulaires...</div>
+          <div v-if="loadingForms" class="text-center pa-8">
+            <v-progress-circular indeterminate color="primary" size="48" />
+            <div class="text-h6 mt-4">Chargement des formulaires...</div>
           </div>
           
           <v-list v-else-if="filteredValidForms.length > 0" class="rounded">
@@ -206,36 +303,59 @@
               v-for="form in filteredValidForms"
               :key="form._id"
               @click="selectForm(form)"
-              class="mb-2"
+              class="mb-2 pa-4"
               variant="outlined"
+              rounded
             >
-              <v-list-item-title class="font-weight-medium">
+              <template v-slot:prepend>
+                <v-avatar color="primary" size="40">
+                  <v-icon color="white">mdi-clipboard-text</v-icon>
+                </v-avatar>
+              </template>
+              
+              <v-list-item-title class="font-weight-medium mb-1">
                 {{ form.title }}
               </v-list-item-title>
-              <v-list-item-subtitle>
-                {{ form.associationType === 'student' ? 'Étudiants individuels' : 'Groupes' }} •
-                Valide jusqu'au {{ formatDate(form.validTo) }}
+              
+              <v-list-item-subtitle class="mb-2">
+                {{ form.associationType === 'student' ? 'Évaluation individuelle' : 'Évaluation par groupe' }}
+                • Valide jusqu'au {{ formatDate(form.validTo) }}
               </v-list-item-subtitle>
-              <template v-slot:append>
-                <v-chip size="small" color="success">
-                  Valide
+              
+              <div class="d-flex align-center gap-2">
+                <v-chip size="small" color="success" variant="flat">
+                  {{ getFormStatus(form) }}
                 </v-chip>
+                <v-chip size="small" color="info" variant="outlined">
+                  {{ form.sections?.length || 0 }} section{{ (form.sections?.length || 0) > 1 ? 's' : '' }}
+                </v-chip>
+              </div>
+              
+              <template v-slot:append>
+                <v-icon color="primary">mdi-chevron-right</v-icon>
               </template>
             </v-list-item>
           </v-list>
           
-          <div v-else class="text-center pa-4">
-            <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-clipboard-remove</v-icon>
-            <div class="text-h6">Aucun formulaire valide</div>
+          <div v-else class="text-center pa-8">
+            <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-clipboard-remove</v-icon>
+            <div class="text-h6 mb-2">Aucun formulaire disponible</div>
             <div class="text-body-2 text-medium-emphasis">
-              Aucun formulaire n'est disponible pour évaluation actuellement
+              {{ searchForms ? 'Aucun formulaire ne correspond à votre recherche' : 'Aucun formulaire n\'est disponible pour évaluation actuellement' }}
             </div>
           </div>
         </v-card-text>
         
-        <v-card-actions class="pa-4">
+        <v-divider></v-divider>
+        
+        <v-card-actions class="pa-6">
           <v-spacer />
-          <v-btn variant="text" @click="selectFormDialog = false">
+          <v-btn 
+            color="grey-darken-1" 
+            variant="text"
+            @click="selectFormDialog = false"
+            prepend-icon="mdi-close"
+          >
             Annuler
           </v-btn>
         </v-card-actions>
@@ -243,147 +363,248 @@
     </v-dialog>
 
     <!-- Dialog d'évaluation -->
-    <v-dialog v-model="evaluationDialog" max-width="900px" persistent>
-      <v-card v-if="selectedForm">
-        <v-card-title class="text-h5 primary text-white pa-4">
-          <v-icon left color="white">mdi-clipboard-edit</v-icon>
-          {{ currentEvaluation.id ? 'Modifier' : 'Nouvelle' }} évaluation
+    <v-dialog v-model="evaluationDialog" max-width="1000px" persistent>
+      <v-card v-if="selectedFormData" class="rounded-lg">
+        <v-card-title class="pa-6 pb-4">
+          <div class="d-flex align-center">
+            <v-icon size="large" color="primary" class="mr-3">
+              {{ currentEvaluation._id ? 'mdi-clipboard-edit' : 'mdi-clipboard-plus' }}
+            </v-icon>
+            <div>
+              <h3 class="text-h5 font-weight-bold">
+                {{ currentEvaluation._id ? 'Modifier' : 'Nouvelle' }} évaluation
+              </h3>
+              <p class="text-subtitle-1 text-medium-emphasis mb-0">
+                {{ selectedFormData.title }}
+              </p>
+            </div>
+          </div>
         </v-card-title>
         
-        <v-card-text class="pa-6">
-          <!-- Informations du formulaire -->
-          <div class="mb-6">
-            <h3 class="text-h6 mb-3">📋 {{ selectedForm.title }}</h3>
-            
-            <!-- Sélection de l'entité à évaluer -->
-            <v-select
-              v-model="currentEvaluation.selectedEntity"
-              :items="evaluationTargets"
-              :label="selectedForm.associationType === 'student' ? 'Sélectionner un étudiant' : 'Sélectionner un groupe'"
-              prepend-inner-icon="mdi-account"
-              variant="outlined"
-              :rules="[rules.required]"
-              return-object
-            />
-          </div>
-
-          <!-- Sections d'évaluation -->
-          <div v-if="currentEvaluation.selectedEntity">
-            <h3 class="text-h6 mb-4">📝 Critères d'évaluation</h3>
-            
-            <v-expansion-panels v-model="expandedSections" multiple>
-              <v-expansion-panel
-                v-for="(section, sectionIndex) in selectedForm.sections"
-                :key="sectionIndex"
-              >
-                <v-expansion-panel-title>
-                  <div class="d-flex align-center w-100">
-                    <v-icon class="mr-2">mdi-folder-outline</v-icon>
-                    <span class="font-weight-medium">{{ section.title }}</span>
-                    <v-spacer />
-                    <v-chip size="small" class="mr-2">
-                      {{ getCompletedCriteria(sectionIndex) }}/{{ section.lines.length }}
-                    </v-chip>
-                  </div>
-                </v-expansion-panel-title>
-                
-                <v-expansion-panel-text>
-                  <v-card flat>
-                    <v-card-text>
-                      <v-row>
-                        <v-col
-                          v-for="(line, lineIndex) in section.lines"
-                          :key="lineIndex"
-                          cols="12"
-                          md="6"
-                        >
-                          <v-card variant="outlined" class="pa-4">
-                            <div class="text-subtitle-2 mb-3">{{ line.title }}</div>
-                            
-                            <!-- Notation binaire (Oui/Non) -->
-                            <div v-if="line.type === 'binary'">
-                              <v-radio-group
-                                v-model="currentEvaluation.scores[`${sectionIndex}-${lineIndex}`]"
-                                inline
-                                hide-details
-                              >
-                                <v-radio label="Non" :value="0" color="error" />
-                                <v-radio label="Oui" :value="1" color="success" />
-                              </v-radio-group>
-                            </div>
-                            
-                            <!-- Notation par échelle (0-8) -->
-                            <div v-else-if="line.type === 'scale'">
-                              <v-slider
-                                v-model="currentEvaluation.scores[`${sectionIndex}-${lineIndex}`]"
-                                :min="0"
-                                :max="8"
-                                :step="1"
-                                show-ticks="always"
-                                tick-size="4"
-                                thumb-label
-                                color="primary"
-                              >
-                                <template v-slot:thumb-label="{ modelValue }">
-                                  {{ modelValue }}/8
-                                </template>
-                              </v-slider>
-                              <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-                                <span>0 - Insuffisant</span>
-                                <span>4 - Satisfaisant</span>
-                                <span>8 - Excellent</span>
-                              </div>
-                            </div>
-                            
-                            <div class="mt-2 text-caption text-medium-emphasis">
-                              Score max: {{ line.maxScore }}
-                            </div>
-                          </v-card>
-                        </v-col>
-                      </v-row>
-                    </v-card-text>
-                  </v-card>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-          </div>
-
-          <!-- Résumé des scores -->
-          <div v-if="currentEvaluation.selectedEntity && Object.keys(currentEvaluation.scores).length > 0" class="mt-6">
-            <v-card variant="tonal" color="info">
-              <v-card-text>
-                <div class="d-flex align-center mb-2">
-                  <v-icon class="mr-2">mdi-chart-line</v-icon>
-                  <span class="font-weight-medium">Progression de l'évaluation</span>
-                </div>
-                <v-progress-linear
-                  :model-value="evaluationProgress"
-                  :color="evaluationProgress === 100 ? 'success' : 'info'"
-                  height="8"
-                  rounded
+        <v-divider></v-divider>
+        
+        <v-card-text class="pa-6" style="max-height: 70vh; overflow-y: auto;">
+          <v-form ref="evaluationFormRef" v-model="evaluationFormValid">
+            <!-- Informations de l'évaluation -->
+            <v-row class="mb-6">
+              <v-col cols="12">
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-information</v-icon>
+                  Informations de l'évaluation
+                </h4>
+              </v-col>
+              
+              <v-col cols="12" md="6" v-if="selectedFormData.associationType === 'student'">
+                <v-select
+                  v-model="currentEvaluation.student"
+                  :items="availableStudents"
+                  label="Étudiant à évaluer"
+                  prepend-inner-icon="mdi-account"
+                  variant="outlined"
+                  density="comfortable"
+                  item-title="fullName"
+                  item-value="_id"
+                  :rules="[rules.required]"
+                  required
                 />
-                <div class="mt-2 text-body-2">
-                  {{ Object.keys(currentEvaluation.scores).length }} critères sur {{ totalCriteria }} évalués ({{ evaluationProgress }}%)
-                </div>
-              </v-card-text>
-            </v-card>
-          </div>
+              </v-col>
+              
+              <v-col cols="12" md="6" v-if="selectedFormData.associationType === 'group'">
+                <v-text-field
+                  v-model.number="currentEvaluation.groupNumber"
+                  label="Numéro de groupe"
+                  prepend-inner-icon="mdi-account-group"
+                  variant="outlined"
+                  density="comfortable"
+                  type="number"
+                  :rules="[rules.required, rules.isNumber]"
+                  required
+                />
+              </v-col>
+              
+              <v-col cols="12" md="6">
+                <v-select
+                  v-model="currentEvaluation.promotion"
+                  :items="availablePromotions"
+                  label="Promotion"
+                  prepend-inner-icon="mdi-school"
+                  variant="outlined"
+                  density="comfortable"
+                  item-title="name"
+                  item-value="_id"
+                  clearable
+                />
+              </v-col>
+              
+              <v-col cols="12" md="6">
+                <v-select
+                  v-model="currentEvaluation.group"
+                  :items="availableGroups"
+                  label="Groupe TD"
+                  prepend-inner-icon="mdi-account-group"
+                  variant="outlined"
+                  density="comfortable"
+                  item-title="name"
+                  item-value="_id"
+                  clearable
+                />
+              </v-col>
+              
+              <v-col cols="12" md="6" v-if="selectedFormData.associationType === 'group'">
+                <v-text-field
+                  v-model="currentEvaluation.subgroup"
+                  label="Sous-groupe (optionnel)"
+                  prepend-inner-icon="mdi-account-multiple"
+                  variant="outlined"
+                  density="comfortable"
+                  placeholder="Ex: TP1, Projet A"
+                />
+              </v-col>
+            </v-row>
+
+            <!-- Sections d'évaluation -->
+            <div v-if="hasValidTarget">
+              <h4 class="text-h6 font-weight-medium mb-3">
+                <v-icon color="primary" class="mr-2">mdi-clipboard-check</v-icon>
+                Critères d'évaluation
+              </h4>
+              
+              <v-expansion-panels v-model="expandedSections" multiple variant="accordion">
+                <v-expansion-panel
+                  v-for="(section, sectionIndex) in selectedFormData.sections"
+                  :key="sectionIndex"
+                  class="mb-2"
+                >
+                  <v-expansion-panel-title>
+                    <div class="d-flex align-center w-100">
+                      <v-icon class="mr-3">mdi-folder-outline</v-icon>
+                      <div class="flex-grow-1">
+                        <div class="font-weight-medium">{{ section.title }}</div>
+                        <div class="text-caption text-medium-emphasis">
+                          {{ section.lines.length }} critère{{ section.lines.length > 1 ? 's' : '' }}
+                        </div>
+                      </div>
+                      <v-chip size="small" :color="getSectionCompletionColor(sectionIndex)" variant="flat">
+                        {{ getCompletedCriteria(sectionIndex) }}/{{ section.lines.length }}
+                      </v-chip>
+                    </div>
+                  </v-expansion-panel-title>
+                  
+                  <v-expansion-panel-text>
+                    <v-row>
+                      <v-col
+                        v-for="(line, lineIndex) in section.lines"
+                        :key="lineIndex"
+                        cols="12"
+                        md="6"
+                      >
+                        <v-card variant="outlined" class="pa-4">
+                          <div class="text-subtitle-2 mb-3 font-weight-medium">
+                            {{ line.title }}
+                          </div>
+                          
+                          <div class="mb-3">
+                            <v-chip size="small" :color="line.type === 'binary' ? 'orange' : 'blue'" variant="outlined">
+                              {{ line.type === 'binary' ? 'Oui/Non' : 'Échelle 0-8' }}
+                            </v-chip>
+                            <v-chip size="small" color="grey" variant="outlined" class="ml-1">
+                              Max: {{ line.maxScore }}
+                            </v-chip>
+                          </div>
+                          
+                          <!-- Notation binaire -->
+                          <div v-if="line.type === 'binary'">
+                            <v-radio-group
+                              v-model="currentEvaluation.scores[line._id]"
+                              inline
+                              hide-details
+                            >
+                              <v-radio label="Non" :value="0" color="error" />
+                              <v-radio label="Oui" :value="1" color="success" />
+                            </v-radio-group>
+                          </div>
+                          
+                          <!-- Notation par échelle -->
+                          <div v-else-if="line.type === 'scale'">
+                            <v-slider
+                              v-model="currentEvaluation.scores[line._id]"
+                              :min="0"
+                              :max="line.maxScore"
+                              :step="1"
+                              show-ticks="always"
+                              tick-size="4"
+                              thumb-label
+                              color="primary"
+                            >
+                              <template v-slot:thumb-label="{ modelValue }">
+                                {{ modelValue }}/{{ line.maxScore }}
+                              </template>
+                            </v-slider>
+                            <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+                              <span>0 - Insuffisant</span>
+                              <span>{{ Math.floor(line.maxScore / 2) }} - Satisfaisant</span>
+                              <span>{{ line.maxScore }} - Excellent</span>
+                            </div>
+                          </div>
+                          
+                          <div class="mt-2 text-caption">
+                            <v-chip size="x-small" :color="line.notationType === 'common' ? 'green' : line.notationType === 'individual' ? 'blue' : 'orange'" variant="flat">
+                              {{ getNotationTypeLabel(line.notationType) }}
+                            </v-chip>
+                          </div>
+                        </v-card>
+                      </v-col>
+                    </v-row>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
+            </div>
+
+            <!-- Résumé de progression -->
+            <div v-if="hasValidTarget && Object.keys(currentEvaluation.scores).length > 0" class="mt-6">
+              <v-card variant="tonal" color="info">
+                <v-card-text>
+                  <div class="d-flex align-center mb-3">
+                    <v-icon class="mr-2">mdi-chart-line</v-icon>
+                    <span class="font-weight-medium">Progression de l'évaluation</span>
+                  </div>
+                  <v-progress-linear
+                    :model-value="evaluationProgress"
+                    :color="evaluationProgress === 100 ? 'success' : 'info'"
+                    height="8"
+                    rounded
+                    class="mb-2"
+                  />
+                  <div class="text-body-2">
+                    {{ Object.keys(currentEvaluation.scores).length }} critères sur {{ totalCriteria }} évalués ({{ evaluationProgress }}%)
+                  </div>
+                </v-card-text>
+              </v-card>
+            </div>
+          </v-form>
         </v-card-text>
 
-        <v-divider />
+        <v-divider></v-divider>
         
-        <v-card-actions class="pa-4">
-          <v-btn variant="text" @click="closeEvaluationDialog">
+        <v-card-actions class="pa-6">
+          <v-btn 
+            color="grey-darken-1" 
+            variant="text"
+            @click="closeEvaluationDialog"
+            prepend-icon="mdi-close"
+          >
             Annuler
           </v-btn>
           <v-spacer />
           <v-btn
             color="primary"
+            variant="elevated"
             @click="saveEvaluation"
-            :loading="savingEvaluation"
+            :loading="saving"
             :disabled="!canSaveEvaluation"
+            prepend-icon="mdi-check"
           >
-            {{ currentEvaluation.id ? 'Modifier' : 'Sauvegarder' }}
+            {{ currentEvaluation._id ? 'Modifier' : 'Créer' }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -419,73 +640,105 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
-import { authService } from '../services/api.js';
+import { ref, onMounted, computed } from 'vue';
 
-// État principal
+// État de la page
+const loading = ref(false);
+const saving = ref(false);
+const loadingForms = ref(false);
 const evaluations = ref([]);
 const filteredEvaluations = ref([]);
 const validForms = ref([]);
-const allForms = ref([]); // Nouveau: stocke tous les formulaires
-const allStudents = ref([]);
-const loadingEvaluations = ref(false);
-const loadingForms = ref(false);
-const savingEvaluation = ref(false);
+const availableStudents = ref([]);
+const availablePromotions = ref([]);
+const availableGroups = ref([]);
 
-// État des dialogs
+// Pagination
+const pagination = ref({
+  page: 1,
+  limit: 10,
+  total: 0,
+  pages: 0,
+  hasNextPage: false,
+  hasPrevPage: false
+});
+
+// Filtres
+const search = ref('');
+const selectedForm = ref(null);
+const selectedPromotion = ref(null);
+const selectedGroup = ref(null);
+const searchForms = ref('');
+
+// Dialogs
 const selectFormDialog = ref(false);
 const evaluationDialog = ref(false);
 const deleteDialog = ref(false);
 
-// État des filtres et recherche
-const searchEvaluations = ref('');
-const searchForms = ref('');
-const filterFormId = ref('');
-const filterStatus = ref('');
-
-// État de l'évaluation en cours
-const selectedForm = ref(null);
+// État de l'évaluation
+const selectedFormData = ref(null);
 const currentEvaluation = ref({
-  id: null,
-  formId: null,
-  selectedEntity: null,
+  _id: null,
+  form: null,
+  professor: null,
+  student: null,
+  groupNumber: 0,
   scores: {},
-  createdAt: null,
-  updatedAt: null
+  promotion: null,
+  group: null,
+  subgroup: ''
 });
 
 const expandedSections = ref([]);
+const evaluationFormRef = ref(null);
+const evaluationFormValid = ref(false);
 const evaluationToDelete = ref(null);
 
-// État des notifications
-const snackbar = ref({ show: false, text: '', color: 'success' });
+// Notifications
+const snackbar = ref({
+  show: false,
+  text: '',
+  color: 'success'
+});
 
-// Headers pour la table des évaluations
-const evaluationHeaders = [
-  { title: 'Formulaire', key: 'formTitle', sortable: true },
-  { title: 'Entité évaluée', key: 'evaluatedEntity', sortable: false },
-  { title: 'Progression', key: 'progress', sortable: true, width: '120px' },
-  { title: 'Créée le', key: 'createdAt', sortable: true, width: '110px' },
-  { title: 'Modifiée le', key: 'updatedAt', sortable: true, width: '110px' },
-  { title: 'Actions', key: 'actions', sortable: false, width: '140px' }
-];
+// En-têtes du tableau
+const headers = ref([
+  { title: 'Formulaire', align: 'start', key: 'form', sortable: false },
+  { title: 'Cible', align: 'start', key: 'target', sortable: false },
+  { title: 'Contexte', align: 'start', key: 'context', sortable: false },
+  { title: 'Scores', align: 'start', key: 'scores', sortable: false },
+  { title: 'Professeur', align: 'start', key: 'professor' },
+  { title: 'Date', align: 'start', key: 'createdAt' },
+  { title: 'Actions', align: 'end', key: 'actions', sortable: false }
+]);
 
 // Règles de validation
 const rules = {
-  required: v => !!v || 'Ce champ est requis'
+  required: v => !!v || 'Ce champ est requis',
+  isNumber: v => !isNaN(parseFloat(v)) && isFinite(v) || 'Doit être un nombre'
 };
 
-// Computed properties
-const currentUser = computed(() => authService.getCurrentUser());
-
+// Options pour les filtres
 const formOptions = computed(() => {
-  const options = [{ title: 'Tous les formulaires', value: '' }];
-  const uniqueForms = [...new Set(evaluations.value.map(e => e.formId))];
-  uniqueForms.forEach(formId => {
-    const form = validForms.value.find(f => f._id === formId);
-    if (form) {
-      options.push({ title: form.title, value: formId });
-    }
+  const options = [{ title: 'Tous les formulaires', value: null }];
+  validForms.value.forEach(form => {
+    options.push({ title: form.title, value: form._id });
+  });
+  return options;
+});
+
+const promotionOptions = computed(() => {
+  const options = [{ title: 'Toutes les promotions', value: null }];
+  availablePromotions.value.forEach(promotion => {
+    options.push({ title: `${promotion.name} (${promotion.year})`, value: promotion._id });
+  });
+  return options;
+});
+
+const groupOptions = computed(() => {
+  const options = [{ title: 'Tous les groupes', value: null }];
+  availableGroups.value.forEach(group => {
+    options.push({ title: group.name, value: group._id });
   });
   return options;
 });
@@ -497,152 +750,169 @@ const filteredValidForms = computed(() => {
   );
 });
 
-const evaluationTargets = computed(() => {
-  if (!selectedForm.value) return [];
-  
-  if (selectedForm.value.associationType === 'student') {
-    return selectedForm.value.students.map(studentId => {
-      const student = allStudents.value.find(s => s._id === studentId);
-      return student ? {
-        title: `${student.firstName} ${student.lastName}`,
-        value: studentId,
-        type: 'student',
-        studentId: studentId,
-        groupNumber: null
-      } : null;
-    }).filter(Boolean);
+const hasValidTarget = computed(() => {
+  if (selectedFormData.value?.associationType === 'student') {
+    return !!currentEvaluation.value.student;
   } else {
-    const groups = [];
-    for (let i = 1; i <= selectedForm.value.groupCount; i++) {
-      groups.push({
-        title: `Groupe ${i}`,
-        value: `group-${i}`,
-        type: 'group',
-        studentId: null,
-        groupNumber: i
-      });
-    }
-    return groups;
+    return currentEvaluation.value.groupNumber > 0;
   }
 });
 
 const totalCriteria = computed(() => {
-  if (!selectedForm.value) return 0;
-  return selectedForm.value.sections.reduce((total, section) => 
-    total + section.lines.length, 0
-  );
+  if (!selectedFormData.value) return 0;
+  return selectedFormData.value.sections?.reduce((total, section) => {
+    return total + (section.lines?.length || 0);
+  }, 0) || 0;
 });
 
 const evaluationProgress = computed(() => {
-  if (totalCriteria.value === 0) return 0;
-  const scored = Object.keys(currentEvaluation.value.scores).length;
-  return Math.round((scored / totalCriteria.value) * 100);
+  const completed = Object.keys(currentEvaluation.value.scores).length;
+  const total = totalCriteria.value;
+  return total > 0 ? Math.round((completed / total) * 100) : 0;
 });
 
 const canSaveEvaluation = computed(() => {
-  // Vérifier qu'une entité est sélectionnée
-  if (!currentEvaluation.value.selectedEntity) return false;
-  
-  // Vérifier qu'au moins un critère a été évalué
-  if (Object.keys(currentEvaluation.value.scores).length === 0) return false;
-  
-  // Vérifier qu'un formulaire est sélectionné
-  if (!selectedForm.value) return false;
-  
-  // Vérifier que le formulaire est toujours valide (non archivé, non supprimé)
-  if (selectedForm.value.isArchived || selectedForm.value.isDeleted) return false;
-  
-  // Vérifier que tous les scores sont valides (entre 0 et le score maximum)
-  const isAllScoresValid = Object.entries(currentEvaluation.value.scores).every(([key, score]) => {
-    const [sectionIndex, lineIndex] = key.split('-').map(Number);
-    const line = selectedForm.value.sections[sectionIndex]?.lines[lineIndex];
-    if (!line) return false;
-    
-    const maxScore = line.maxScore || 20;
-    return score >= 0 && score <= maxScore && !isNaN(score);
-  });
-  
-  return isAllScoresValid;
+  return evaluationFormValid.value && hasValidTarget.value && Object.keys(currentEvaluation.value.scores).length > 0;
+});
+
+// Chargement des données
+onMounted(async () => {
+  await Promise.all([
+    loadEvaluations(),
+    loadValidForms(),
+    loadStudents(),
+    loadPromotions(),
+    loadGroups()
+  ]);
 });
 
 // Méthodes utilitaires
 const formatDate = (dateString) => {
   if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('fr-FR', {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('fr-FR', {
     year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
+    month: 'short',
+    day: 'numeric'
   });
 };
 
-const showNotification = (message, color = 'success') => {
-  snackbar.value = { show: true, text: message, color };
+const getFormStatus = (form) => {
+  const now = new Date();
+  const validFrom = new Date(form.validFrom);
+  const validTo = new Date(form.validTo);
+  
+  if (now < validFrom) return 'À venir';
+  if (now > validTo) return 'Expiré';
+  return 'Actif';
+};
+
+const getScorePercentage = (evaluation) => {
+  const scoreCount = evaluation.scores?.length || 0;
+  const totalCriteria = evaluation.form?.sections?.reduce((total, section) => {
+    return total + (section.lines?.length || 0);
+  }, 0) || 1;
+  return Math.round((scoreCount / totalCriteria) * 100);
+};
+
+const getScoreColor = (evaluation) => {
+  const percentage = getScorePercentage(evaluation);
+  if (percentage === 100) return 'success';
+  if (percentage > 50) return 'warning';
+  return 'error';
+};
+
+const getSectionCompletionColor = (sectionIndex) => {
+  const completed = getCompletedCriteria(sectionIndex);
+  const total = selectedFormData.value.sections[sectionIndex].lines.length;
+  const percentage = (completed / total) * 100;
+  
+  if (percentage === 100) return 'success';
+  if (percentage > 50) return 'warning';
+  return 'error';
 };
 
 const getCompletedCriteria = (sectionIndex) => {
-  if (!selectedForm.value) return 0;
-  const section = selectedForm.value.sections[sectionIndex];
+  if (!selectedFormData.value) return 0;
+  const section = selectedFormData.value.sections[sectionIndex];
   if (!section) return 0;
   
-  let completed = 0;
-  section.lines.forEach((line, lineIndex) => {
-    const scoreKey = `${sectionIndex}-${lineIndex}`;
-    if (currentEvaluation.value.scores.hasOwnProperty(scoreKey)) {
-      completed++;
-    }
-  });
-  return completed;
+  return section.lines.filter(line => 
+    currentEvaluation.value.scores[line._id] !== undefined
+  ).length;
 };
 
-// Gestion des données
-const fetchValidForms = async () => {
+const getNotationTypeLabel = (type) => {
+  const labels = {
+    'common': 'Commune',
+    'individual': 'Individuelle',
+    'mixed': 'Mixte'
+  };
+  return labels[type] || type;
+};
+
+// Méthodes de chargement des données
+const loadEvaluations = async () => {
+  loading.value = true;
+  try {
+    const queryParams = new URLSearchParams();
+    queryParams.append('page', pagination.value.page);
+    queryParams.append('limit', pagination.value.limit);
+    
+    if (selectedForm.value) queryParams.append('form', selectedForm.value);
+    if (selectedPromotion.value) queryParams.append('promotion', selectedPromotion.value);
+    if (selectedGroup.value) queryParams.append('group', selectedGroup.value);
+
+    const response = await fetch(`http://localhost:5000/api/evaluations?${queryParams.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors du chargement des évaluations');
+    }
+
+    const data = await response.json();
+    evaluations.value = data.evaluations || [];
+    filteredEvaluations.value = evaluations.value;
+    
+    if (data.pagination) {
+      pagination.value = data.pagination;
+    }
+  } catch (error) {
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors du chargement des évaluations',
+      color: 'error'
+    };
+  } finally {
+    loading.value = false;
+  }
+};
+
+const loadValidForms = async () => {
   loadingForms.value = true;
   try {
-    const response = await fetch('http://localhost:5000/api/forms/list', {
+    const response = await fetch('http://localhost:5000/api/forms', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
     
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        return;
-      }
-      throw new Error('Erreur lors du chargement des formulaires');
+    if (response.ok) {
+      const data = await response.json();
+      validForms.value = data.forms || [];
     }
-    
-    const forms = await response.json();
-    const now = new Date();
-    
-    // Stocker tous les formulaires
-    allForms.value = forms;
-    
-    // Filtrer les formulaires valides (date actuelle dans la plage de validité)
-    validForms.value = forms.filter(form => {
-      const validFrom = new Date(form.validFrom);
-      const validTo = new Date(form.validTo);
-      return now >= validFrom && now <= validTo;
-    });
-    
-    console.log('Formulaires valides chargés:', validForms.value.length);
-    console.log('Tous les formulaires chargés:', allForms.value.length);
-    
   } catch (error) {
     console.error('Erreur lors du chargement des formulaires:', error);
-    showNotification('Erreur lors du chargement des formulaires', 'error');
-    validForms.value = [];
-    allForms.value = [];
   } finally {
     loadingForms.value = false;
   }
 };
 
-const fetchStudents = async () => {
+const loadStudents = async () => {
   try {
     const response = await fetch('http://localhost:5000/api/students/list', {
       headers: {
@@ -650,384 +920,264 @@ const fetchStudents = async () => {
       }
     });
     
-    if (!response.ok) throw new Error('Erreur lors du chargement des étudiants');
-    
-    const data = await response.json();
-    allStudents.value = data || [];
-    
+    if (response.ok) {
+      const data = await response.json();
+      availableStudents.value = (data.students || data || []).map(student => ({
+        ...student,
+        fullName: `${student.firstName} ${student.lastName}`
+      }));
+    }
   } catch (error) {
     console.error('Erreur lors du chargement des étudiants:', error);
-    allStudents.value = [];
   }
 };
 
-const fetchEvaluations = async () => {
-  loadingEvaluations.value = true;
+const loadPromotions = async () => {
   try {
-    const user = authService.getCurrentUser();
-    const response = await fetch(`http://localhost:5000/api/evaluations/professor/${user.id}`, {
+    const response = await fetch('http://localhost:5000/api/promotions', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
     
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        return;
-      }
-      throw new Error('Erreur lors du chargement des évaluations');
+    if (response.ok) {
+      const data = await response.json();
+      availablePromotions.value = data.promotions || data || [];
     }
-    
-    const data = await response.json();
-    
-    // Récupérer tous les formulaires (pas seulement les valides) pour enrichir les évaluations
-    let allForms = [];
-    try {
-      const formsResponse = await fetch('http://localhost:5000/api/forms/list', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      if (formsResponse.ok) {
-        allForms = await formsResponse.json();
-      } else {
-        console.error('Erreur HTTP lors de la récupération des formulaires:', formsResponse.status);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des formulaires pour enrichir les évaluations:', error);
-    }
-    
-    // Enrichir les évaluations avec les données des formulaires et étudiants
-    evaluations.value = data.map(evaluation => {
-      // S'assurer qu'on utilise bien l'ID du formulaire et non l'ID de l'évaluation
-      let formId;
-      if (evaluation.form) {
-        // Si evaluation.form est un objet, extraire l'_id
-        if (typeof evaluation.form === 'object' && evaluation.form._id) {
-          formId = evaluation.form._id;
-        } else {
-          formId = evaluation.form;
-        }
-      } else {
-        formId = evaluation.formId;
-      }
+  } catch (error) {
+    console.error('Erreur lors du chargement des promotions:', error);
+  }
+};
 
-      const form = allForms.find(f => f._id.toString() === formId?.toString());
-      if (!form) {
-        console.warn('Formulaire non trouvé pour l\'ID:', formId);
+const loadGroups = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/groups', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
-
-      // Déterminer l'entité évaluée (étudiant ou groupe)
-      let entityName = null;
-      if (evaluation.student) {
-        const student = allStudents.value.find(s => s._id === evaluation.student);
-        entityName = student ? `${student.firstName} ${student.lastName}` : 'Étudiant introuvable';
-      } else if (evaluation.groupNumber && evaluation.groupNumber > 0) {
-        entityName = `Groupe ${evaluation.groupNumber}`;
-      } else {
-        entityName = 'Entité non définie';
-      }
-      
-      // Calculer la progression
-      const totalCriteria = form ? 
-        form.sections.reduce((total, section) => total + section.lines.length, 0) : 0;
-      const scoredCriteria = evaluation.scores ? evaluation.scores.length : 0;
-      const progress = totalCriteria > 0 ? Math.round((scoredCriteria / totalCriteria) * 100) : 0;
-      
-      return {
-        ...evaluation,
-        formTitle: form?.title || 'Formulaire supprimé',
-        formId: formId,
-        studentName: entityName, // Nom générique pour l'affichage (étudiant ou groupe)
-        progress: progress
-      };
     });
     
-    filteredEvaluations.value = evaluations.value;
-    console.log('Évaluations chargées:', evaluations.value.length);
-    
+    if (response.ok) {
+      const data = await response.json();
+      availableGroups.value = data.groups || data || [];
+    }
   } catch (error) {
-    console.error('Erreur lors du chargement des évaluations:', error);
-    showNotification('Erreur lors du chargement des évaluations', 'error');
-    evaluations.value = [];
-    filteredEvaluations.value = [];
-  } finally {
-    loadingEvaluations.value = false;
+    console.error('Erreur lors du chargement des groupes:', error);
   }
+};
+
+const handleTableOptions = (options) => {
+  pagination.value.page = options.page;
+  pagination.value.limit = options.itemsPerPage;
+  loadEvaluations();
 };
 
 const filterEvaluations = () => {
-  filteredEvaluations.value = evaluations.value.filter(evaluation => {
-    const matchesSearch = !searchEvaluations.value || 
-      evaluation.formTitle.toLowerCase().includes(searchEvaluations.value.toLowerCase()) ||
-      (evaluation.studentName && evaluation.studentName.toLowerCase().includes(searchEvaluations.value.toLowerCase()));
-    
-    const matchesForm = !filterFormId.value || evaluation.formId === filterFormId.value;
-    
-    const matchesStatus = !filterStatus.value || 
-      (filterStatus.value === 'completed' && evaluation.progress === 100) ||
-      (filterStatus.value === 'draft' && evaluation.progress < 100);
-    
-    return matchesSearch && matchesForm && matchesStatus;
-  });
+  loadEvaluations();
 };
 
-// Gestion des dialogs
+// Méthodes des dialogs
 const openNewEvaluationDialog = () => {
   selectFormDialog.value = true;
-  fetchValidForms();
 };
 
-const selectForm = async (form) => {
-  selectedForm.value = form;
+const selectForm = (form) => {
+  selectedFormData.value = form;
+  resetCurrentEvaluation();
+  currentEvaluation.value.form = form._id;
   selectFormDialog.value = false;
-  
-  // Réinitialiser l'évaluation
-  currentEvaluation.value = {
-    id: null,
-    formId: form._id,
-    selectedEntity: null,
-    scores: {},
-    createdAt: null,
-    updatedAt: null
-  };
-  
-  // Ouvrir toutes les sections par défaut
-  expandedSections.value = form.sections.map((_, index) => index);
-  
   evaluationDialog.value = true;
+  expandedSections.value = form.sections?.map((_, index) => index) || [];
 };
 
-const editEvaluation = async (evaluation) => {
-  // Déterminer l'ID du formulaire (essayer les deux propriétés possibles)
-  const formId = evaluation.form || evaluation.formId;
-  
-  // Chercher d'abord dans les formulaires valides
-  let form = validForms.value.find(f => f._id === formId || f._id.toString() === formId?.toString());
-  
-  if (!form) {
-    // Si le formulaire n'est pas dans les formulaires valides, récupérer tous les formulaires
-    try {
-      const response = await fetch('http://localhost:5000/api/forms/list', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      if (response.ok) {
-        const allForms = await response.json();
-        form = allForms.find(f => f._id === formId || f._id.toString() === formId?.toString());
-      }
-    } catch (error) {
-      console.error('Erreur lors de la récupération du formulaire:', error);
-    }
-  }
-  
-  if (!form) {
-    console.error('Formulaire non trouvé pour l\'ID:', formId);
-    showNotification('Formulaire non trouvé', 'error');
-    return;
-  }
-  
-  selectedForm.value = form;
-  
-  // Reconstituer la structure de l'évaluation
-  const scores = {};
-  evaluation.scores.forEach(score => {
-    // Trouver l'index de la ligne dans le formulaire
-    let sectionIndex = -1;
-    let lineIndex = -1;
-    
-    form.sections.forEach((section, sIdx) => {
-      section.lines.forEach((line, lIdx) => {
-        if (line._id === score.lineId) {
-          sectionIndex = sIdx;
-          lineIndex = lIdx;
-        }
-      });
-    });
-    
-    if (sectionIndex >= 0 && lineIndex >= 0) {
-      scores[`${sectionIndex}-${lineIndex}`] = score.score;
-    }
-  });
-  
-  // Trouver l'entité évaluée
-  let selectedEntity = null;
-  if (evaluation.student) {
-    const student = allStudents.value.find(s => s._id === evaluation.student);
-    if (student) {
-      selectedEntity = {
-        title: `${student.firstName} ${student.lastName}`,
-        value: student._id,
-        type: 'student',
-        studentId: student._id,
-        groupNumber: null
-      };
-    }
-  } else if (evaluation.groupNumber) {
-    selectedEntity = {
-      title: `Groupe ${evaluation.groupNumber}`,
-      value: `group-${evaluation.groupNumber}`,
-      type: 'group',
-      studentId: null,
-      groupNumber: evaluation.groupNumber
-    };
-  }
-  
+const resetCurrentEvaluation = () => {
   currentEvaluation.value = {
-    id: evaluation._id,
-    formId: form._id,
-    selectedEntity: selectedEntity,
-    scores: scores,
-    createdAt: evaluation.createdAt,
-    updatedAt: evaluation.updatedAt
+    _id: null,
+    form: null,
+    professor: null,
+    student: null,
+    groupNumber: 0,
+    scores: {},
+    promotion: null,
+    group: null,
+    subgroup: ''
   };
-  
-  expandedSections.value = form.sections.map((_, index) => index);
-  evaluationDialog.value = true;
 };
 
 const closeEvaluationDialog = () => {
   evaluationDialog.value = false;
-  selectedForm.value = null;
-  currentEvaluation.value = {
-    id: null,
-    formId: null,
-    selectedEntity: null,
-    scores: {},
-    createdAt: null,
-    updatedAt: null
-  };
+  selectedFormData.value = null;
+  resetCurrentEvaluation();
 };
 
+// Méthodes CRUD
 const saveEvaluation = async () => {
-  if (!canSaveEvaluation.value) {
-    showNotification('Veuillez remplir au moins un critère avec des scores valides', 'warning');
-    return;
-  }
+  if (!evaluationFormRef.value) return;
   
-  // Validation supplémentaire du formulaire
-  if (!selectedForm.value) {
-    showNotification('Aucun formulaire sélectionné', 'error');
-    return;
-  }
-  
-  if (selectedForm.value.isArchived) {
-    showNotification('Impossible de modifier une évaluation basée sur un formulaire archivé', 'error');
-    return;
-  }
-  
-  savingEvaluation.value = true;
-  try {
-    const user = authService.getCurrentUser();
-    
-    // Convertir les scores au format attendu par l'API
-    const scoresArray = [];
-    Object.entries(currentEvaluation.value.scores).forEach(([key, score]) => {
-      const [sectionIndex, lineIndex] = key.split('-').map(Number);
-      const line = selectedForm.value.sections[sectionIndex]?.lines[lineIndex];
-      if (line && line._id) {
-        // Validation du score
-        const maxScore = line.maxScore || 20;
-        if (score < 0 || score > maxScore || isNaN(score)) {
-          throw new Error(`Score invalide pour le critère "${line.title}": ${score} (max: ${maxScore})`);
-        }
-        
-        scoresArray.push({
-          lineId: line._id,
-          score: Number(score)
-        });
-      }
-    });
+  const { valid } = await evaluationFormRef.value.validate();
+  if (!valid) return;
 
-    // Vérifier qu'on a au moins un score valide
-    if (scoresArray.length === 0) {
-      showNotification('Aucun score valide trouvé', 'error');
-      return;
-    }
-    
-    // Construire le payload selon le format exact attendu par le backend
-    const payload = {
-      formId: currentEvaluation.value.formId,
-      professorId: user.id,
-      studentId: currentEvaluation.value.selectedEntity?.type === 'student' 
-        ? currentEvaluation.value.selectedEntity.studentId 
-        : null,
-      groupNumber: currentEvaluation.value.selectedEntity?.type === 'group' 
-        ? currentEvaluation.value.selectedEntity.groupNumber 
-        : 0,
-      scores: scoresArray
+  saving.value = true;
+  try {
+    // Transformer les scores en format attendu par l'API (avec lineId et score)
+    const scores = Object.entries(currentEvaluation.value.scores).map(([lineId, score]) => ({
+      lineId,
+      score: Number(score)
+    }));
+
+    // Construire le payload selon le nouveau format de l'API
+    const evaluationData = {
+      formId: currentEvaluation.value.form,
+      professorId: getCurrentUser()?.id,
+      studentId: currentEvaluation.value.student || null,
+      groupNumber: currentEvaluation.value.groupNumber || 0,
+      scores,
+      promotion: currentEvaluation.value.promotion || null,
+      group: currentEvaluation.value.group || null,
+      subgroup: currentEvaluation.value.subgroup || null
     };
 
-    console.log('Payload envoyé à l\'API:', payload);
-    
-    let response;
-    
-    // Déterminer l'endpoint selon si c'est une création ou modification
-    if (currentEvaluation.value.id) {
-      // Modification d'une évaluation existante
-      response = await fetch(`http://localhost:5000/api/evaluations/update/${currentEvaluation.value.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(payload)
-      });
-    } else {
-      // Création d'une nouvelle évaluation
-      response = await fetch('http://localhost:5000/api/evaluations/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(payload)
-      });
-    }
+    const url = currentEvaluation.value._id
+      ? `http://localhost:5000/api/evaluations/update/${currentEvaluation.value._id}`
+      : 'http://localhost:5000/api/evaluations/add';
+
+    const method = currentEvaluation.value._id ? 'PUT' : 'POST';
+
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(evaluationData)
+    });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        return;
-      }
-      
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Erreur lors de la sauvegarde');
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Erreur lors de l'${currentEvaluation.value._id ? 'édition' : 'ajout'} de l'évaluation`);
     }
 
     const result = await response.json();
-    console.log('Réponse de l\'API:', result);
 
-    // Message de succès
-    const action = currentEvaluation.value.id ? 'modifiée' : 'créée';
-    showNotification(`Évaluation ${action} avec succès`, 'success');
-    
-    // Fermer le dialog et recharger les données
+    snackbar.value = {
+      show: true,
+      text: result.message || `Évaluation ${currentEvaluation.value._id ? 'modifiée' : 'créée'} avec succès`,
+      color: 'success'
+    };
+
     closeEvaluationDialog();
-    await fetchEvaluations();
-    
+    await loadEvaluations();
   } catch (error) {
-    console.error('Erreur lors de la sauvegarde:', error);
-    showNotification(error.message || 'Erreur lors de la sauvegarde de l\'évaluation', 'error');
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: error.message || `Erreur lors de l'${currentEvaluation.value._id ? 'édition' : 'ajout'} de l'évaluation`,
+      color: 'error'
+    };
   } finally {
-    savingEvaluation.value = false;
+    saving.value = false;
   }
 };
 
-const confirmDeleteEvaluation = (evaluation) => {
-  evaluationToDelete.value = evaluation;
+const viewEvaluation = async (item) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/evaluations/${item._id}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const evaluation = await response.json();
+      selectedFormData.value = evaluation.form;
+      
+      // Convertir les scores en format pour l'édition (avec lineId comme clé)
+      const scores = {};
+      evaluation.scores.forEach(score => {
+        scores[score.lineId] = score.score;
+      });
+      
+      currentEvaluation.value = {
+        _id: evaluation._id,
+        form: evaluation.form._id,
+        professor: evaluation.professor._id,
+        student: evaluation.student?._id || null,
+        groupNumber: evaluation.groupNumber || 0,
+        scores,
+        promotion: evaluation.promotion?._id || null,
+        group: evaluation.group?._id || null,
+        subgroup: evaluation.subgroup || ''
+      };
+      
+      evaluationDialog.value = true;
+      expandedSections.value = evaluation.form.sections?.map((_, index) => index) || [];
+    }
+  } catch (error) {
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors du chargement de l\'évaluation',
+      color: 'error'
+    };
+  }
+};
+
+const editEvaluation = (item) => {
+  viewEvaluation(item);
+};
+
+const exportEvaluation = async (item) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/evaluations/export/${item.form._id}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${item.form.title}-evaluations.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      snackbar.value = {
+        show: true,
+        text: 'Export CSV réalisé avec succès',
+        color: 'success'
+      };
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'export:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors de l\'export',
+      color: 'error'
+    };
+  }
+};
+
+const exportAllEvaluations = async () => {
+  // Implémentation de l'export global
+  snackbar.value = {
+    show: true,
+    text: 'Fonctionnalité d\'export global en cours de développement',
+    color: 'info'
+  };
+};
+
+const confirmDeleteEvaluation = (item) => {
+  evaluationToDelete.value = item;
   deleteDialog.value = true;
 };
 
 const deleteEvaluation = async () => {
   if (!evaluationToDelete.value) return;
-  
+
   try {
     const response = await fetch(`http://localhost:5000/api/evaluations/delete/${evaluationToDelete.value._id}`, {
       method: 'DELETE',
@@ -1035,627 +1185,70 @@ const deleteEvaluation = async () => {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
-    
+
     if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        return;
-      }
-      throw new Error('Erreur lors de la suppression');
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Erreur lors de la suppression de l\'évaluation');
     }
-    
-    showNotification('Évaluation supprimée avec succès !', 'success');
+
+    const result = await response.json();
+
+    snackbar.value = {
+      show: true,
+      text: result.message || 'Évaluation supprimée avec succès',
+      color: 'success'
+    };
+
     deleteDialog.value = false;
     evaluationToDelete.value = null;
-    
-    await fetchEvaluations();
-    
+    await loadEvaluations();
   } catch (error) {
-    console.error('Erreur lors de la suppression:', error);
-    showNotification('Erreur lors de la suppression', 'error');
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: error.message || 'Erreur lors de la suppression de l\'évaluation',
+      color: 'error'
+    };
   }
 };
 
-const exportEvaluationCSV = async (evaluation) => {
+const getCurrentUser = () => {
+  // Fonction utilitaire pour récupérer l'utilisateur actuel
   try {
-    console.log('Export CSV pour l\'évaluation:', evaluation);
-    
-    // Récupérer les détails complets de l'évaluation avec les scores
-    const response = await fetch(`http://localhost:5000/api/evaluations/${evaluation._id}`, {
-      method: 'GET',
+    const token = localStorage.getItem('token');
+    if (token) {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload;
+    }
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'utilisateur:', error);
+  }
+  return null;
+};
+
+// Validation des scores selon l'API
+const validateScores = async (formId, scores) => {
+  try {
+    const response = await fetch('http://localhost:5000/api/evaluations/validate-scores', {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+      },
+      body: JSON.stringify({ formId, scores })
     });
-    
+
     if (!response.ok) {
-      throw new Error('Erreur lors de la récupération de l\'évaluation');
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Erreur de validation des scores');
     }
-    
-    const evaluationDetails = await response.json();
-    console.log('Détails de l\'évaluation:', evaluationDetails);
-    
-    // Trouver le formulaire correspondant
-    const form = allForms.value.find(f => {
-      const formId = typeof evaluation.form === 'object' ? evaluation.form._id : evaluation.form;
-      return f._id === formId;
-    });
-    
-    if (!form) {
-      throw new Error('Formulaire introuvable pour cette évaluation');
-    }
-    
-    // Générer les données CSV
-    const csvData = generateEvaluationCSV(evaluationDetails, form);
-    
-    // Créer et télécharger le fichier CSV
-    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    // Nom du fichier amélioré avec plus d'informations
-    const entityInfo = evaluation.studentName 
-      ? evaluation.studentName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')
-      : `Groupe_${evaluation.groupNumber}`;
-    const formTitle = form.title.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-    const date = new Date().toISOString().split('T')[0];
-    const time = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
-    const status = evaluation.progress === 100 ? 'TERMINE' : 'EN_COURS';
-    
-    // Calculer le pourcentage pour l'inclure dans le nom
-    let totalScore = 0;
-    let maxScore = 0;
-    if (evaluation.scores && Array.isArray(evaluation.scores)) {
-      evaluation.scores.forEach(scoreItem => {
-        if (scoreItem.lineId) {
-          totalScore += scoreItem.score;
-          // Trouver la ligne correspondante pour obtenir le score max
-          form.sections.forEach(section => {
-            if (section.lines) {
-              section.lines.forEach(line => {
-                if (line._id === scoreItem.lineId) {
-                  maxScore += line.maxScore || 20;
-                }
-              });
-            }
-          });
-        }
-      });
-    }
-    const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
-    
-    const filename = `Evaluation_${formTitle}_${entityInfo}_${percentage}pct_${status}_${date}_${time}.csv`;
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    showNotification('Export CSV réalisé avec succès', 'success');
-    
+
+    return await response.json();
   } catch (error) {
-    console.error('Erreur lors de l\'export CSV:', error);
-    showNotification('Erreur lors de l\'export CSV: ' + error.message, 'error');
+    console.error('Erreur lors de la validation des scores:', error);
+    throw error;
   }
 };
-
-const generateEvaluationCSV = (evaluation, form) => {
-  const csvLines = [];
-  
-  // Calcul préalable des scores pour les résumés
-  let totalScore = 0;
-  let maxPossibleScore = 0;
-  let totalLines = 0;
-  
-  // Créer un mapping des scores par lineId
-  const scoresMap = {};
-  if (evaluation.scores && Array.isArray(evaluation.scores)) {
-    evaluation.scores.forEach(scoreItem => {
-      if (scoreItem.lineId) {
-        scoresMap[scoreItem.lineId] = scoreItem.score;
-      }
-    });
-  }
-  
-  // Calculer les totaux
-  form.sections.forEach(section => {
-    if (section.lines && Array.isArray(section.lines)) {
-      section.lines.forEach(line => {
-        if (scoresMap[line._id] !== undefined) {
-          totalScore += scoresMap[line._id];
-          maxPossibleScore += line.maxScore || 20;
-          totalLines++;
-        }
-      });
-    }
-  });
-  
-  const globalPercentage = maxPossibleScore > 0 ? Math.round((totalScore / maxPossibleScore) * 100) : 0;
-  
-  // === SECTION 1: INFORMATIONS GÉNÉRALES ===
-  csvLines.push('RAPPORT D\'ÉVALUATION');
-  csvLines.push('');
-  csvLines.push('INFORMATIONS GÉNÉRALES');
-  csvLines.push('Propriété,Valeur');
-  csvLines.push(`"Formulaire","${form.title}"`);
-  csvLines.push(`"Description","${(form.description || 'N/A').replace(/"/g, '""')}"`);
-  
-  if (evaluation.studentId) {
-    csvLines.push(`"Étudiant évalué","${evaluation.studentName || 'N/A'}"`);
-    csvLines.push(`"Type d'évaluation","Individuelle"`);
-  } else {
-    csvLines.push(`"Groupe évalué","Groupe ${evaluation.groupNumber}"`);
-    csvLines.push(`"Type d'évaluation","Groupe"`);
-  }
-  
-  csvLines.push(`"Professeur évaluateur","${evaluation.professorName || 'N/A'}"`);
-  csvLines.push(`"Date de création","${formatDate(evaluation.createdAt)}"`);
-  csvLines.push(`"Date de modification","${formatDate(evaluation.updatedAt)}"`);
-  csvLines.push(`"Statut","${evaluation.progress === 100 ? 'Terminée' : 'En cours'}"`);
-  csvLines.push('');
-  
-  // === SECTION 2: RÉSUMÉ DES SCORES ===
-  csvLines.push('RÉSUMÉ DES SCORES');
-  csvLines.push('Métrique,Valeur');
-  csvLines.push(`"Score total obtenu",${totalScore}`);
-  csvLines.push(`"Score maximum possible",${maxPossibleScore}`);
-  csvLines.push(`"Pourcentage global",${globalPercentage}%`);
-  csvLines.push(`"Nombre de critères évalués",${totalLines}`);
-  
-  if (totalLines > 0) {
-    const averageScore = Math.round((totalScore / totalLines) * 100) / 100;
-    csvLines.push(`"Score moyen par critère",${averageScore}`);
-  }
-  
-  // Niveau d'appréciation avec couleur (commentaire pour Excel)
-  let appreciation = 'Non évalué';
-  let appreciationComment = '';
-  if (globalPercentage >= 90) {
-    appreciation = 'Excellent';
-    appreciationComment = 'Performance exceptionnelle';
-  } else if (globalPercentage >= 80) {
-    appreciation = 'Très bien';
-    appreciationComment = 'Performance très satisfaisante';
-  } else if (globalPercentage >= 70) {
-    appreciation = 'Bien';
-    appreciationComment = 'Performance satisfaisante';
-  } else if (globalPercentage >= 60) {
-    appreciation = 'Assez bien';
-    appreciationComment = 'Performance acceptable';
-  } else if (globalPercentage >= 50) {
-    appreciation = 'Passable';
-    appreciationComment = 'Performance minimale';
-  } else if (globalPercentage > 0) {
-    appreciation = 'Insuffisant';
-    appreciationComment = 'Performance en dessous des attentes';
-  }
-  
-  csvLines.push(`"Appréciation globale","${appreciation}"`);
-  csvLines.push(`"Commentaire","${appreciationComment}"`);
-  csvLines.push('');
-  
-  // === SECTION 3: DÉTAIL PAR SECTION ===
-  csvLines.push('PERFORMANCE PAR SECTION');
-  csvLines.push('Section,Score Obtenu,Score Maximum,Pourcentage,Nombre de Critères,Appréciation');
-  
-  form.sections.forEach(section => {
-    if (section.lines && Array.isArray(section.lines)) {
-      let sectionScore = 0;
-      let sectionMaxScore = 0;
-      let sectionLines = 0;
-      
-      section.lines.forEach(line => {
-        if (scoresMap[line._id] !== undefined) {
-          sectionScore += scoresMap[line._id];
-          sectionMaxScore += line.maxScore || 20;
-          sectionLines++;
-        }
-      });
-      
-      if (sectionLines > 0) {
-        const sectionPercentage = sectionMaxScore > 0 ? Math.round((sectionScore / sectionMaxScore) * 100) : 0;
-        const sectionTitle = (section.title || 'Section sans titre').replace(/"/g, '""');
-        
-        let sectionAppreciation = 'Non évalué';
-        if (sectionPercentage >= 90) sectionAppreciation = 'Excellent';
-        else if (sectionPercentage >= 80) sectionAppreciation = 'Très bien';
-        else if (sectionPercentage >= 70) sectionAppreciation = 'Bien';
-        else if (sectionPercentage >= 60) sectionAppreciation = 'Assez bien';
-        else if (sectionPercentage >= 50) sectionAppreciation = 'Passable';
-        else if (sectionPercentage > 0) sectionAppreciation = 'Insuffisant';
-        
-        csvLines.push(`"${sectionTitle}",${sectionScore},${sectionMaxScore},${sectionPercentage}%,${sectionLines},"${sectionAppreciation}"`);
-      }
-    }
-  });
-  
-  csvLines.push('');
-  
-  // === SECTION 4: DÉTAIL DE CHAQUE CRITÈRE ===
-  csvLines.push('DÉTAIL DES CRITÈRES D\'ÉVALUATION');
-  csvLines.push('Section,Critère,Score Obtenu,Score Maximum,Pourcentage,Type de Notation,Commentaire');
-  
-  form.sections.forEach(section => {
-    if (section.lines && Array.isArray(section.lines)) {
-      section.lines.forEach(line => {
-        const score = scoresMap[line._id];
-        const maxScore = line.maxScore || 20;
-        
-        if (score !== undefined) {
-          const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-          const sectionTitle = (section.title || 'Section sans titre').replace(/"/g, '""');
-          const lineTitle = (line.title || 'Critère sans titre').replace(/"/g, '""');
-          
-          // Type de notation
-          let notationType = 'Échelle';
-          if (line.type === 'binary') {
-            notationType = 'Binaire (Oui/Non)';
-          } else if (line.type === 'scale') {
-            notationType = 'Échelle (0-8)';
-          }
-          
-          // Commentaire basé sur le score
-          let comment = '';
-          if (line.type === 'binary') {
-            comment = score === 1 ? 'Critère validé' : 'Critère non validé';
-          } else {
-            if (percentage >= 90) comment = 'Performance excellente';
-            else if (percentage >= 80) comment = 'Performance très bonne';
-            else if (percentage >= 70) comment = 'Performance bonne';
-            else if (percentage >= 60) comment = 'Performance satisfaisante';
-            else if (percentage >= 50) comment = 'Performance acceptable';
-            else comment = 'Performance à améliorer';
-          }
-          
-          csvLines.push(`"${sectionTitle}","${lineTitle}",${score},${maxScore},${percentage}%,"${notationType}","${comment}"`);
-        }
-      });
-    }
-  });
-  
-  csvLines.push('');
-  
-  // === SECTION 5: MÉTADONNÉES ===
-  csvLines.push('MÉTADONNÉES DU RAPPORT');
-  csvLines.push('Information,Valeur');
-  csvLines.push(`"Date de génération du rapport","${new Date().toLocaleString('fr-FR')}"`);
-  csvLines.push(`"Version du formulaire","${form.version || '1.0'}"`);
-  csvLines.push(`"ID de l'évaluation","${evaluation._id}"`);
-  csvLines.push(`"ID du formulaire","${form._id}"`);
-  csvLines.push(`"Système","EvalMe IUT NFC"`);
-  csvLines.push('');
-  
-  // === SECTION 6: LÉGENDE ===
-  csvLines.push('LÉGENDE DES APPRÉCIATIONS');
-  csvLines.push('Pourcentage,Appréciation,Description');
-  csvLines.push('"90% et plus","Excellent","Performance exceptionnelle dépassant les attentes"');
-  csvLines.push('"80% à 89%","Très bien","Performance très satisfaisante"');
-  csvLines.push('"70% à 79%","Bien","Performance satisfaisante"');
-  csvLines.push('"60% à 69%","Assez bien","Performance acceptable"');
-  csvLines.push('"50% à 59%","Passable","Performance minimale requise"');
-  csvLines.push('"Moins de 50%","Insuffisant","Performance en dessous des attentes"');
-  
-  // Ajouter BOM UTF-8 pour Excel
-  return '\ufeff' + csvLines.join('\n');
-};
-
-const exportAllEvaluationsCSV = async () => {
-  try {
-    if (filteredEvaluations.value.length === 0) {
-      showNotification('Aucune évaluation à exporter', 'warning');
-      return;
-    }
-    
-    showNotification('Préparation de l\'export en cours...', 'info');
-    
-    // Récupérer les détails de toutes les évaluations
-    const evaluationDetails = [];
-    
-    for (const evaluation of filteredEvaluations.value) {
-      try {
-        const response = await fetch(`http://localhost:5000/api/evaluations/${evaluation._id}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        
-        if (response.ok) {
-          const details = await response.json();
-          evaluationDetails.push(details);
-        }
-      } catch (error) {
-        console.error(`Erreur lors de la récupération de l'évaluation ${evaluation._id}:`, error);
-      }
-    }
-    
-    if (evaluationDetails.length === 0) {
-      showNotification('Aucune évaluation valide trouvée', 'error');
-      return;
-    }
-    
-    // Générer le CSV global
-    const csvData = generateAllEvaluationsCSV(evaluationDetails);
-    
-    // Créer et télécharger le fichier CSV
-    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    // Nom du fichier avec date
-    const date = new Date().toISOString().split('T')[0];
-    const time = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
-    const filename = `export_evaluations_${date}_${time}.csv`;
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    showNotification(`Export de ${evaluationDetails.length} évaluations réalisé avec succès`, 'success');
-    
-  } catch (error) {
-    console.error('Erreur lors de l\'export global:', error);
-    showNotification('Erreur lors de l\'export global: ' + error.message, 'error');
-  }
-};
-
-const generateAllEvaluationsCSV = (evaluations) => {
-  const csvLines = [];
-  
-  // === EN-TÊTE DU RAPPORT GLOBAL ===
-  csvLines.push('EXPORT GLOBAL DES ÉVALUATIONS');
-  csvLines.push(`Généré le: ${new Date().toLocaleString('fr-FR')}`);
-  csvLines.push(`Nombre total d'évaluations: ${evaluations.length}`);
-  csvLines.push('');
-  
-  // === CALCUL DES STATISTIQUES GLOBALES ===
-  const stats = {
-    totalEvaluations: evaluations.length,
-    completedEvaluations: 0,
-    inProgressEvaluations: 0,
-    averageGlobalScore: 0,
-    formsUsed: new Set(),
-    studentsEvaluated: new Set(),
-    groupsEvaluated: new Set(),
-    totalScoreSum: 0,
-    totalMaxScoreSum: 0,
-    byForm: new Map(),
-    byStatus: { completed: 0, inProgress: 0 },
-    scoreDistribution: { excellent: 0, veryGood: 0, good: 0, fair: 0, passable: 0, insufficient: 0 }
-  };
-  
-  evaluations.forEach(evaluation => {
-    // Trouver le formulaire correspondant
-    const form = allForms.value.find(f => {
-      const formId = typeof evaluation.form === 'object' ? evaluation.form._id : evaluation.form;
-      return f._id === formId;
-    });
-    
-    if (form) {
-      stats.formsUsed.add(form.title);
-      
-      // Initialiser les stats par formulaire
-      if (!stats.byForm.has(form.title)) {
-        stats.byForm.set(form.title, { count: 0, totalScore: 0, maxScore: 0 });
-      }
-      
-      // Calculer le score de cette évaluation
-      let evalScore = 0;
-      let evalMaxScore = 0;
-      
-      if (evaluation.scores && Array.isArray(evaluation.scores)) {
-        const scoresMap = {};
-        evaluation.scores.forEach(scoreItem => {
-          if (scoreItem.lineId) {
-            scoresMap[scoreItem.lineId] = scoreItem.score;
-          }
-        });
-        
-        form.sections.forEach(section => {
-          if (section.lines) {
-            section.lines.forEach(line => {
-              if (scoresMap[line._id] !== undefined) {
-                evalScore += scoresMap[line._id];
-                evalMaxScore += line.maxScore || 20;
-              }
-            });
-          }
-        });
-      }
-      
-      stats.totalScoreSum += evalScore;
-      stats.totalMaxScoreSum += evalMaxScore;
-      
-      // Stats par formulaire
-      const formStats = stats.byForm.get(form.title);
-      formStats.count++;
-      formStats.totalScore += evalScore;
-      formStats.maxScore += evalMaxScore;
-      
-      // Statut de l'évaluation
-      if (evaluation.progress === 100) {
-        stats.completedEvaluations++;
-        stats.byStatus.completed++;
-      } else {
-        stats.inProgressEvaluations++;
-        stats.byStatus.inProgress++;
-      }
-      
-      // Distribution des scores
-      const percentage = evalMaxScore > 0 ? Math.round((evalScore / evalMaxScore) * 100) : 0;
-      if (percentage >= 90) stats.scoreDistribution.excellent++;
-      else if (percentage >= 80) stats.scoreDistribution.veryGood++;
-      else if (percentage >= 70) stats.scoreDistribution.good++;
-      else if (percentage >= 60) stats.scoreDistribution.fair++;
-      else if (percentage >= 50) stats.scoreDistribution.passable++;
-      else if (percentage > 0) stats.scoreDistribution.insufficient++;
-      
-      // Entités évaluées
-      if (evaluation.studentId) {
-        stats.studentsEvaluated.add(evaluation.studentName || evaluation.studentId);
-      } else {
-        stats.groupsEvaluated.add(evaluation.groupNumber);
-      }
-    }
-  });
-  
-  stats.averageGlobalScore = stats.totalMaxScoreSum > 0 ? Math.round((stats.totalScoreSum / stats.totalMaxScoreSum) * 100) : 0;
-  
-  // === SECTION 1: RÉSUMÉ EXÉCUTIF ===
-  csvLines.push('RÉSUMÉ EXÉCUTIF');
-  csvLines.push('Métrique,Valeur,Pourcentage');
-  csvLines.push(`"Nombre total d'évaluations",${stats.totalEvaluations},100%`);
-  csvLines.push(`"Évaluations terminées",${stats.completedEvaluations},${Math.round((stats.completedEvaluations / stats.totalEvaluations) * 100)}%`);
-  csvLines.push(`"Évaluations en cours",${stats.inProgressEvaluations},${Math.round((stats.inProgressEvaluations / stats.totalEvaluations) * 100)}%`);
-  csvLines.push(`"Score moyen global",${stats.averageGlobalScore}%,N/A`);
-  csvLines.push(`"Nombre de formulaires utilisés",${stats.formsUsed.size},N/A`);
-  csvLines.push(`"Étudiants évalués",${stats.studentsEvaluated.size},N/A`);
-  csvLines.push(`"Groupes évalués",${stats.groupsEvaluated.size},N/A`);
-  csvLines.push('');
-  
-  // === SECTION 2: DISTRIBUTION DES PERFORMANCES ===
-  csvLines.push('DISTRIBUTION DES PERFORMANCES');
-  csvLines.push('Niveau,Nombre d\'évaluations,Pourcentage,Plage de scores');
-  const total = stats.totalEvaluations;
-  csvLines.push(`"Excellent",${stats.scoreDistribution.excellent},${Math.round((stats.scoreDistribution.excellent / total) * 100)}%,"90% et plus"`);
-  csvLines.push(`"Très bien",${stats.scoreDistribution.veryGood},${Math.round((stats.scoreDistribution.veryGood / total) * 100)}%,"80% à 89%"`);
-  csvLines.push(`"Bien",${stats.scoreDistribution.good},${Math.round((stats.scoreDistribution.good / total) * 100)}%,"70% à 79%"`);
-  csvLines.push(`"Assez bien",${stats.scoreDistribution.fair},${Math.round((stats.scoreDistribution.fair / total) * 100)}%,"60% à 69%"`);
-  csvLines.push(`"Passable",${stats.scoreDistribution.passable},${Math.round((stats.scoreDistribution.passable / total) * 100)}%,"50% à 59%"`);
-  csvLines.push(`"Insuffisant",${stats.scoreDistribution.insufficient},${Math.round((stats.scoreDistribution.insufficient / total) * 100)}%,"Moins de 50%"`);
-  csvLines.push('');
-  
-  // === SECTION 3: PERFORMANCE PAR FORMULAIRE ===
-  csvLines.push('PERFORMANCE PAR FORMULAIRE');
-  csvLines.push('Formulaire,Nombre d\'évaluations,Score moyen,Performance globale');
-  stats.byForm.forEach((formStats, formTitle) => {
-    const avgPercentage = formStats.maxScore > 0 ? Math.round((formStats.totalScore / formStats.maxScore) * 100) : 0;
-    let performance = 'Non évaluée';
-    if (avgPercentage >= 90) performance = 'Excellente';
-    else if (avgPercentage >= 80) performance = 'Très bonne';
-    else if (avgPercentage >= 70) performance = 'Bonne';
-    else if (avgPercentage >= 60) performance = 'Satisfaisante';
-    else if (avgPercentage >= 50) performance = 'Acceptable';
-    else if (avgPercentage > 0) performance = 'À améliorer';
-    
-    csvLines.push(`"${formTitle.replace(/"/g, '""')}",${formStats.count},${avgPercentage}%,"${performance}"`);
-  });
-  csvLines.push('');
-  
-  // === SECTION 4: LISTE DÉTAILLÉE DES ÉVALUATIONS ===
-  csvLines.push('LISTE DÉTAILLÉE DES ÉVALUATIONS');
-  csvLines.push('ID,Formulaire,Type d\'évaluation,Entité évaluée,Professeur,Score Total,Score Maximum,Pourcentage,Appréciation,Statut,Date de création,Date de modification');
-  
-  evaluations.forEach(evaluation => {
-    const form = allForms.value.find(f => {
-      const formId = typeof evaluation.form === 'object' ? evaluation.form._id : evaluation.form;
-      return f._id === formId;
-    });
-    
-    const formTitle = form ? form.title.replace(/"/g, '""') : 'Formulaire inconnu';
-    const type = evaluation.studentId ? 'Individuelle' : 'Groupe';
-    const entity = evaluation.studentId 
-      ? (evaluation.studentName || 'Étudiant inconnu').replace(/"/g, '""')
-      : `Groupe ${evaluation.groupNumber}`;
-    const evaluator = (evaluation.professorName || 'Évaluateur inconnu').replace(/"/g, '""');
-    
-    // Calculer le score
-    let evalScore = 0;
-    let evalMaxScore = 0;
-    
-    if (form && evaluation.scores && Array.isArray(evaluation.scores)) {
-      const scoresMap = {};
-      evaluation.scores.forEach(scoreItem => {
-        if (scoreItem.lineId) {
-          scoresMap[scoreItem.lineId] = scoreItem.score;
-        }
-      });
-      
-      form.sections.forEach(section => {
-        if (section.lines) {
-          section.lines.forEach(line => {
-            if (scoresMap[line._id] !== undefined) {
-              evalScore += scoresMap[line._id];
-              evalMaxScore += line.maxScore || 20;
-            }
-          });
-        }
-      });
-    }
-    
-    const percentage = evalMaxScore > 0 ? Math.round((evalScore / evalMaxScore) * 100) : 0;
-    
-    // Appréciation
-    let appreciation = 'Non évaluée';
-    if (percentage >= 90) appreciation = 'Excellent';
-    else if (percentage >= 80) appreciation = 'Très bien';
-    else if (percentage >= 70) appreciation = 'Bien';
-    else if (percentage >= 60) appreciation = 'Assez bien';
-    else if (percentage >= 50) appreciation = 'Passable';
-    else if (percentage > 0) appreciation = 'Insuffisant';
-    
-    const status = evaluation.progress === 100 ? 'Terminée' : 'En cours';
-    const createdAt = formatDate(evaluation.createdAt);
-    const updatedAt = formatDate(evaluation.updatedAt);
-    
-    csvLines.push(`"${evaluation._id}","${formTitle}","${type}","${entity}","${evaluator}",${evalScore},${evalMaxScore},${percentage}%,"${appreciation}","${status}","${createdAt}","${updatedAt}"`);
-  });
-  
-  csvLines.push('');
-  
-  // === SECTION 5: MÉTADONNÉES ===
-  csvLines.push('MÉTADONNÉES DE L\'EXPORT');
-  csvLines.push('Information,Valeur');
-  csvLines.push(`"Date et heure de génération","${new Date().toLocaleString('fr-FR')}"`);
-  csvLines.push(`"Système","EvalMe IUT NFC"`);
-  csvLines.push(`"Version de l'export","2.0"`);
-  csvLines.push(`"Période d'export","${evaluations.length > 0 ? formatDate(Math.min(...evaluations.map(e => new Date(e.createdAt)))) : 'N/A'} - ${evaluations.length > 0 ? formatDate(Math.max(...evaluations.map(e => new Date(e.updatedAt || e.createdAt)))) : 'N/A'}"`);
-  csvLines.push(`"Formulaires concernés","${Array.from(stats.formsUsed).join('; ')}"`);
-  csvLines.push('');
-  
-  // === SECTION 6: NOTES ET RECOMMANDATIONS ===
-  csvLines.push('NOTES ET RECOMMANDATIONS');
-  csvLines.push('Type,Description');
-  
-  // Recommandations basées sur les statistiques
-  if (stats.averageGlobalScore < 60) {
-    csvLines.push('"Attention","Le score moyen global est inférieur à 60%. Il est recommandé de revoir les critères d\'évaluation ou d\'améliorer la formation."');
-  } else if (stats.averageGlobalScore >= 90) {
-    csvLines.push('"Félicitations","Excellente performance globale ! Les objectifs pédagogiques semblent être bien atteints."');
-  }
-  
-  if (stats.inProgressEvaluations > stats.completedEvaluations) {
-    csvLines.push('"Information","Plus d\'évaluations sont en cours que terminées. Pensez à relancer les évaluateurs."');
-  }
-  
-  csvLines.push('"Format","Ce fichier est optimisé pour Excel. Les colonnes peuvent être redimensionnées pour une meilleure lisibilité."');
-  csvLines.push('"Support","Pour toute question technique, contactez l\'équipe support EvalMe IUT NFC."');
-  
-  // Ajouter BOM UTF-8 pour Excel
-  return '\ufeff' + csvLines.join('\n');
-};
-
-// Watchers
-watch([searchEvaluations, filterFormId, filterStatus], () => {
-  filterEvaluations();
-});
-
-// Lifecycle
-onMounted(async () => {
-  console.log('EvaluationsPage montée - Chargement des données...');
-  await fetchStudents();
-  await fetchValidForms();
-  await fetchEvaluations();
-});
 </script>
 
 <style scoped>
