@@ -477,8 +477,8 @@ const savePromotion = async () => {
 
   try {
     const url = isEditing.value
-      ? `http://localhost:5000/api/promotions/${promotion.value._id}`
-      : 'http://localhost:5000/api/promotions';
+      ? `http://localhost:5000/api/promotions/update/${promotion.value._id}`
+      : 'http://localhost:5000/api/promotions/add';
 
     const method = isEditing.value ? 'PUT' : 'POST';
 
@@ -520,6 +520,8 @@ const savePromotion = async () => {
 const deletePromotion = async () => {
   if (!promotionToDelete.value) return;
 
+  console.log('Tentative de suppression de la promotion avec ID :', promotionToDelete.value._id);
+
   try {
     const response = await fetch(`http://localhost:5000/api/promotions/${promotionToDelete.value._id}`, {
       method: 'DELETE',
@@ -528,8 +530,12 @@ const deletePromotion = async () => {
       }
     });
 
+    console.log('Réponse de suppression :', response.status, response.statusText);
+
     if (!response.ok) {
-      throw new Error('Erreur lors de la suppression de la promotion');
+      const errorData = await response.json();
+      console.error('Erreur retournée par le backend :', errorData);
+      throw new Error(errorData.message || 'Erreur lors de la suppression de la promotion');
     }
 
     snackbar.value = {
@@ -542,10 +548,10 @@ const deletePromotion = async () => {
     promotionToDelete.value = null;
     await loadPromotions();
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error('Erreur lors de la suppression de la promotion :', error);
     snackbar.value = {
       show: true,
-      text: 'Erreur lors de la suppression de la promotion',
+      text: error.message || 'Erreur lors de la suppression de la promotion',
       color: 'error'
     };
   }

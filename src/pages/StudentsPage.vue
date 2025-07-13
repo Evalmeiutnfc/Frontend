@@ -135,58 +135,88 @@
                 </v-chip>
               </template>
 
-              <!-- Promotion -->
-              <template v-slot:item.promotion="{ item }">
+              <!-- Promotion actuelle -->
+              <template v-slot:item.currentPromotion="{ item }">
                 <v-chip
-                  v-if="item.promotion?.name"
-                  color="secondary"
-                  size="small"
-                  variant="outlined"
-                  prepend-icon="mdi-school"
-                >
-                  {{ item.promotion.name }}
-                </v-chip>
-                <span v-else class="text-medium-emphasis">-</span>
-              </template>
-
-              <!-- Groupe -->
-              <template v-slot:item.group="{ item }">
-                <v-chip
-                  v-if="item.group?.name"
-                  color="info"
-                  size="small"
-                  variant="outlined"
-                  prepend-icon="mdi-account-group"
-                >
-                  {{ item.group.name }}
-                </v-chip>
-                <span v-else class="text-medium-emphasis">-</span>
-              </template>
-
-              <!-- Sous-groupe -->
-              <template v-slot:item.subgroup="{ item }">
-                <v-chip
-                  v-if="item.subgroup"
-                  color="warning"
-                  size="small"
-                  variant="outlined"
-                  prepend-icon="mdi-account-multiple"
-                >
-                  {{ item.subgroup }}
-                </v-chip>
-                <span v-else class="text-medium-emphasis">-</span>
-              </template>
-
-              <!-- Type (individuel ou groupe) -->
-              <template v-slot:item.isGroup="{ item }">
-                <v-chip
-                  :color="item.isGroup ? 'purple' : 'success'"
+                  v-if="item.currentPromotion?.name"
+                  color="primary"
                   size="small"
                   variant="flat"
-                  :prepend-icon="item.isGroup ? 'mdi-account-group' : 'mdi-account'"
+                  prepend-icon="mdi-school"
+                  class="font-weight-medium"
                 >
-                  {{ item.isGroup ? 'Groupe' : 'Individuel' }}
+                  {{ item.currentPromotion.name }}
                 </v-chip>
+                <span v-else class="text-medium-emphasis">-</span>
+              </template>
+
+              <!-- Groupe actuel -->
+              <template v-slot:item.currentGroup="{ item }">
+                <v-chip
+                  v-if="item.currentGroup?.name"
+                  color="success"
+                  size="small"
+                  variant="flat"
+                  prepend-icon="mdi-account-group"
+                  class="font-weight-medium"
+                >
+                  {{ item.currentGroup.name }}
+                </v-chip>
+                <span v-else class="text-medium-emphasis">-</span>
+              </template>
+
+              <!-- Promotions -->
+              <template v-slot:item.promotions="{ item }">
+                <div v-if="item.promotions && item.promotions.length > 0">
+                  <v-chip
+                    v-for="promotion in item.promotions.slice(0, 2)"
+                    :key="promotion._id || promotion"
+                    color="secondary"
+                    size="small"
+                    variant="outlined"
+                    prepend-icon="mdi-school"
+                    class="mr-1 mb-1"
+                  >
+                    {{ promotion.name || promotion }}
+                  </v-chip>
+                  <v-chip
+                    v-if="item.promotions.length > 2"
+                    color="grey"
+                    size="small"
+                    variant="outlined"
+                    class="mr-1 mb-1"
+                  >
+                    +{{ item.promotions.length - 2 }}
+                  </v-chip>
+                </div>
+                <span v-else class="text-medium-emphasis">-</span>
+              </template>
+
+              <!-- Groupes -->
+              <template v-slot:item.groups="{ item }">
+                <div v-if="item.groups && item.groups.length > 0">
+                  <v-chip
+                    v-for="group in item.groups.slice(0, 2)"
+                    :key="group._id || group"
+                    color="info"
+                    size="small"
+                    variant="outlined"
+                    prepend-icon="mdi-account-group"
+                    class="mr-1 mb-1"
+                  >
+                    {{ group.name || group }}
+                  </v-chip>
+                  <v-chip
+                    v-if="item.groups.length > 2"
+                    color="grey"
+                    size="small"
+                    variant="outlined"
+                    class="mr-1 mb-1"
+                  >
+                    +{{ item.groups.length - 2 }}
+                  </v-chip>
+                </div>
+                <span v-else class="text-medium-emphasis">-</span>
               </template>
 
               <!-- Actions -->
@@ -197,10 +227,10 @@
                     variant="text" 
                     color="info" 
                     size="small"
-                    @click="viewStudent(item)"
+                    @click="viewStudentContext(item)"
                   >
                     <v-icon size="small">mdi-eye</v-icon>
-                    <v-tooltip activator="parent" location="top">Voir les détails</v-tooltip>
+                    <v-tooltip activator="parent" location="top">Voir le contexte</v-tooltip>
                   </v-btn>
                   <v-btn 
                     icon="mdi-pencil" 
@@ -315,58 +345,78 @@
               <v-col cols="12">
                 <h4 class="text-h6 font-weight-medium mb-3">
                   <v-icon color="primary" class="mr-2">mdi-school</v-icon>
-                  Affectations
+                  Affectations actuelles
                 </h4>
               </v-col>
               
               <v-col cols="12" md="6">
                 <v-select
-                  v-model="student.promotion"
+                  v-model="student.currentPromotion"
                   :items="promotionOptions"
-                  label="Promotion"
+                  label="Promotion actuelle"
                   variant="outlined"
                   density="comfortable"
                   prepend-inner-icon="mdi-school"
                   item-title="name"
                   item-value="_id"
-                  :rules="[v => !!v || 'La promotion est requise']"
+                  placeholder="Sélectionnez la promotion actuelle"
                 ></v-select>
               </v-col>
               
               <v-col cols="12" md="6">
                 <v-select
-                  v-model="student.group"
+                  v-model="student.currentGroup"
                   :items="groupOptions"
-                  label="Groupe"
+                  label="Groupe actuel"
                   variant="outlined"
                   density="comfortable"
                   prepend-inner-icon="mdi-account-group"
                   item-title="name"
                   item-value="_id"
-                  :disabled="!student.promotion"
-                  :rules="[v => !!v || 'Le groupe est requis']"
+                  placeholder="Sélectionnez le groupe actuel"
                 ></v-select>
               </v-col>
 
+              <!-- Historique des affectations -->
+              <v-col cols="12">
+                <h4 class="text-h6 font-weight-medium mb-3 mt-4">
+                  <v-icon color="secondary" class="mr-2">mdi-history</v-icon>
+                  Historique des affectations
+                </h4>
+              </v-col>
+              
               <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="student.subgroup"
-                  label="Sous-groupe (optionnel)"
+                <v-select
+                  v-model="student.promotions"
+                  :items="promotionOptions"
+                  label="Toutes les promotions"
                   variant="outlined"
                   density="comfortable"
-                  prepend-inner-icon="mdi-account-multiple"
-                  placeholder="Ex: TP1, TP2..."
-                ></v-text-field>
+                  prepend-inner-icon="mdi-school"
+                  item-title="name"
+                  item-value="_id"
+                  multiple
+                  chips
+                  closable-chips
+                  placeholder="Sélectionnez toutes les promotions"
+                ></v-select>
               </v-col>
-
+              
               <v-col cols="12" md="6">
-                <v-switch
-                  v-model="student.isGroup"
-                  label="Cet étudiant représente un groupe"
-                  color="purple"
-                  inset
-                  hide-details
-                ></v-switch>
+                <v-select
+                  v-model="student.groups"
+                  :items="groupOptions"
+                  label="Tous les groupes"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-account-group"
+                  item-title="name"
+                  item-value="_id"
+                  multiple
+                  chips
+                  closable-chips
+                  placeholder="Sélectionnez tous les groupes"
+                ></v-select>
               </v-col>
             </v-row>
           </v-form>
@@ -409,6 +459,166 @@
           <v-spacer></v-spacer>
           <v-btn color="grey-darken-1" text @click="deleteDialog = false">Annuler</v-btn>
           <v-btn color="error" @click="deleteStudent">Supprimer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Dialog de contexte hiérarchique -->
+    <v-dialog v-model="contextDialog" max-width="800px">
+      <v-card class="rounded-lg">
+        <v-card-title class="pa-6 pb-4">
+          <div class="d-flex align-center">
+            <v-icon size="large" color="primary" class="mr-3">mdi-account-tree</v-icon>
+            <div>
+              <h3 class="text-h5 font-weight-bold">
+                Contexte hiérarchique
+              </h3>
+              <p class="text-subtitle-1 text-medium-emphasis mb-0">
+                {{ selectedStudentContext?.student?.firstName }} {{ selectedStudentContext?.student?.lastName }}
+              </p>
+            </div>
+          </div>
+        </v-card-title>
+        
+        <v-divider></v-divider>
+        
+        <v-card-text class="pa-6">
+          <div v-if="selectedStudentContext">
+            <!-- Informations de base -->
+            <v-row class="mb-4">
+              <v-col cols="12">
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-account</v-icon>
+                  Informations générales
+                </h4>
+                <v-chip color="primary" class="mr-2">{{ selectedStudentContext.student.studentNumber }}</v-chip>
+                <v-chip color="secondary">{{ selectedStudentContext.student.year }}</v-chip>
+              </v-col>
+            </v-row>
+
+            <!-- Affectations actuelles -->
+            <v-row class="mb-4">
+              <v-col cols="12">
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="success" class="mr-2">mdi-star</v-icon>
+                  Affectations actuelles
+                </h4>
+                <div class="d-flex gap-2 mb-3">
+                  <v-chip
+                    v-if="selectedStudentContext.student.currentPromotion"
+                    color="primary"
+                    variant="flat"
+                    prepend-icon="mdi-school"
+                  >
+                    {{ selectedStudentContext.student.currentPromotion.name }}
+                  </v-chip>
+                  <v-chip
+                    v-if="selectedStudentContext.student.currentGroup"
+                    color="success"
+                    variant="flat"
+                    prepend-icon="mdi-account-group"
+                  >
+                    {{ selectedStudentContext.student.currentGroup.name }}
+                  </v-chip>
+                </div>
+                <v-alert v-if="!selectedStudentContext.student.currentPromotion && !selectedStudentContext.student.currentGroup" type="warning" variant="tonal" class="mb-0">
+                  Aucune affectation actuelle définie
+                </v-alert>
+              </v-col>
+            </v-row>
+
+            <!-- Promotions -->
+            <v-row class="mb-4">
+              <v-col cols="12">
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-school</v-icon>
+                  Historique des promotions ({{ selectedStudentContext.hierarchy.promotions?.length || 0 }})
+                </h4>
+                <div v-if="selectedStudentContext.hierarchy.promotions?.length > 0">
+                  <v-chip
+                    v-for="promotion in selectedStudentContext.hierarchy.promotions"
+                    :key="promotion._id"
+                    color="secondary"
+                    variant="outlined"
+                    class="mr-2 mb-2"
+                  >
+                    {{ promotion.name }} ({{ promotion.year }})
+                  </v-chip>
+                </div>
+                <v-alert v-else type="info" variant="tonal" class="mb-0">
+                  Aucune promotion dans l'historique
+                </v-alert>
+              </v-col>
+            </v-row>
+
+            <!-- Groupes -->
+            <v-row class="mb-4">
+              <v-col cols="12">
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-account-group</v-icon>
+                  Historique des groupes ({{ selectedStudentContext.hierarchy.groups?.length || 0 }})
+                </h4>
+                <div v-if="selectedStudentContext.hierarchy.groups?.length > 0">
+                  <v-chip
+                    v-for="group in selectedStudentContext.hierarchy.groups"
+                    :key="group._id"
+                    color="info"
+                    variant="outlined"
+                    class="mr-2 mb-2"
+                  >
+                    {{ group.name }} ({{ group.year }})
+                  </v-chip>
+                </div>
+                <v-alert v-else type="info" variant="tonal" class="mb-0">
+                  Aucun groupe dans l'historique
+                </v-alert>
+              </v-col>
+            </v-row>
+
+            <!-- Sous-groupes -->
+            <v-row>
+              <v-col cols="12">
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-account-multiple</v-icon>
+                  Sous-groupes ({{ selectedStudentContext.hierarchy.subgroups?.length || 0 }})
+                </h4>
+                <div v-if="selectedStudentContext.hierarchy.subgroups?.length > 0">
+                  <v-list>
+                    <v-list-item
+                      v-for="subgroup in selectedStudentContext.hierarchy.subgroups"
+                      :key="subgroup.name"
+                      class="border rounded mb-2"
+                    >
+                      <template v-slot:prepend>
+                        <v-icon color="warning">mdi-account-multiple</v-icon>
+                      </template>
+                      <v-list-item-title>{{ subgroup.name }}</v-list-item-title>
+                      <v-list-item-subtitle>
+                        Groupe: {{ subgroup.groupName }} - {{ subgroup.studentsCount }} étudiant(s)
+                      </v-list-item-subtitle>
+                    </v-list-item>
+                  </v-list>
+                </div>
+                <v-alert v-else type="info" variant="tonal" class="mb-0">
+                  Aucun sous-groupe assigné
+                </v-alert>
+              </v-col>
+            </v-row>
+          </div>
+        </v-card-text>
+        
+        <v-divider></v-divider>
+        
+        <v-card-actions class="pa-6">
+          <v-spacer></v-spacer>
+          <v-btn 
+            color="grey-darken-1" 
+            variant="text"
+            @click="contextDialog = false"
+            prepend-icon="mdi-close"
+          >
+            Fermer
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -456,27 +666,28 @@ const yearOptions = ref([
 const promotionOptions = ref([]);
 const groupOptions = ref([]);
 
-// Modèle étudiant
+// Modèle étudiant avec multi-appartenance
 const student = ref({
   firstName: '',
   lastName: '',
   year: '',
-  promotion: '',
-  group: '',
-  subgroup: '',
+  promotions: [],
+  groups: [],
   studentNumber: '',
-  isGroup: false
+  currentPromotion: '',
+  currentGroup: '',
+  history: []
 });
 
-// En-têtes du tableau
+// En-têtes du tableau mis à jour
 const headers = ref([
   { title: 'Étudiant', align: 'start', key: 'fullName', sortable: false },
   { title: 'Numéro étudiant', align: 'start', key: 'studentNumber' },
   { title: 'Année', align: 'start', key: 'year' },
-  { title: 'Promotion', align: 'start', key: 'promotion' },
-  { title: 'Groupe', align: 'start', key: 'group' },
-  { title: 'Sous-groupe', align: 'start', key: 'subgroup' },
-  { title: 'Type', align: 'start', key: 'isGroup' },
+  { title: 'Promotion actuelle', align: 'start', key: 'currentPromotion' },
+  { title: 'Groupe actuel', align: 'start', key: 'currentGroup' },
+  { title: 'Promotions', align: 'start', key: 'promotions' },
+  { title: 'Groupes', align: 'start', key: 'groups' },
   { title: 'Actions', align: 'end', key: 'actions', sortable: false }
 ]);
 
@@ -486,6 +697,8 @@ const isEditing = ref(false);
 const formValid = ref(false);
 const deleteDialog = ref(false);
 const studentToDelete = ref(null);
+const contextDialog = ref(false);
+const selectedStudentContext = ref(null);
 
 // Notifications
 const snackbar = ref({
@@ -612,24 +825,65 @@ const filterStudents = () => {
       student.year === selectedYear.value;
       
     const matchesPromotion = selectedPromotion.value === null || 
-      student.promotion?._id === selectedPromotion.value;
+      (student.promotions && student.promotions.some(p => 
+        (p._id || p) === selectedPromotion.value
+      ));
       
     return matchesSearch && matchesYear && matchesPromotion;
   });
 };
 
-const viewStudent = (item) => {
-  // Ouvrir une vue détaillée (à implémenter si nécessaire)
-  console.log('Voir détails:', item);
+const viewStudentContext = async (item) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/students/${item._id}/context`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors du chargement du contexte');
+    }
+
+    const data = await response.json();
+    // Ajouter les informations des affectations actuelles
+    const studentWithCurrent = await fetch(`http://localhost:5000/api/students/list?_id=${item._id}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (studentWithCurrent.ok) {
+      const studentData = await studentWithCurrent.json();
+      const fullStudent = studentData.students?.[0];
+      if (fullStudent) {
+        data.student.currentPromotion = fullStudent.currentPromotion;
+        data.student.currentGroup = fullStudent.currentGroup;
+      }
+    }
+    
+    selectedStudentContext.value = data;
+    contextDialog.value = true;
+  } catch (error) {
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors du chargement du contexte de l\'étudiant',
+      color: 'error'
+    };
+  }
 };
 
 const editStudent = (item) => {
   isEditing.value = true;
   student.value = { 
     ...item,
-    promotion: item.promotion?._id || '',
-    group: item.group?._id || ''
+    promotions: item.promotions?.map(p => p._id || p) || [],
+    groups: item.groups?.map(g => g._id || g) || [],
+    currentPromotion: item.currentPromotion?._id || '',
+    currentGroup: item.currentGroup?._id || ''
   };
+  
   dialogOpen.value = true;
 };
 
@@ -653,7 +907,17 @@ const saveStudent = async () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify(student.value)
+      body: JSON.stringify({
+        firstName: student.value.firstName,
+        lastName: student.value.lastName,
+        year: student.value.year,
+        promotions: student.value.promotions,
+        groups: student.value.groups,
+        studentNumber: student.value.studentNumber,
+        currentPromotion: student.value.currentPromotion,
+        currentGroup: student.value.currentGroup,
+        history: []
+      })
     });
 
     if (!response.ok) {
@@ -714,16 +978,84 @@ const deleteStudent = async () => {
   }
 };
 
+const updateStudentAffiliations = async (studentId, affiliations) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/students/${studentId}/update-affiliations`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(affiliations)
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors de la mise à jour des affiliations');
+    }
+
+    snackbar.value = {
+      show: true,
+      text: 'Affiliations mises à jour avec succès',
+      color: 'success'
+    };
+
+    await loadStudents();
+  } catch (error) {
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors de la mise à jour des affiliations',
+      color: 'error'
+    };
+  }
+};
+
+const updateCurrentAffiliations = async (studentId, currentPromotion, currentGroup) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/students/update/${studentId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        currentPromotion,
+        currentGroup
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors de la mise à jour des affectations actuelles');
+    }
+
+    snackbar.value = {
+      show: true,
+      text: 'Affectations actuelles mises à jour avec succès',
+      color: 'success'
+    };
+
+    await loadStudents();
+  } catch (error) {
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors de la mise à jour des affectations actuelles',
+      color: 'error'
+    };
+  }
+};
+
 const resetForm = () => {
   student.value = {
     firstName: '',
     lastName: '',
     year: '',
-    promotion: '',
-    group: '',
-    subgroup: '',
+    promotions: [],
+    groups: [],
     studentNumber: '',
-    isGroup: false
+    currentPromotion: '',
+    currentGroup: '',
+    history: []
   };
   isEditing.value = false;
 };

@@ -155,9 +155,6 @@
                   >
                     Groupe {{ item.groupNumber }}
                   </v-chip>
-                  <div class="text-caption text-medium-emphasis mt-1" v-if="item.subgroup">
-                    {{ item.subgroup }}
-                  </div>
                 </div>
               </template>
 
@@ -166,7 +163,7 @@
                 <div>
                   <div v-if="item.promotion" class="text-body-2">
                     <v-icon size="small" class="mr-1">mdi-school</v-icon>
-                    {{ item.promotion.name }}
+                    {{ item.promotion.name }} {{ item.promotion.year }}
                   </div>
                   <div v-if="item.group" class="text-caption text-medium-emphasis">
                     <v-icon size="small" class="mr-1">mdi-account-group</v-icon>
@@ -430,7 +427,7 @@
                   prepend-inner-icon="mdi-school"
                   variant="outlined"
                   density="comfortable"
-                  item-title="name"
+                  item-title="displayName"
                   item-value="_id"
                   clearable
                 />
@@ -447,17 +444,6 @@
                   item-title="name"
                   item-value="_id"
                   clearable
-                />
-              </v-col>
-              
-              <v-col cols="12" md="6" v-if="selectedFormData.associationType === 'group'">
-                <v-text-field
-                  v-model="currentEvaluation.subgroup"
-                  label="Sous-groupe (optionnel)"
-                  prepend-inner-icon="mdi-account-multiple"
-                  variant="outlined"
-                  density="comfortable"
-                  placeholder="Ex: TP1, Projet A"
                 />
               </v-col>
             </v-row>
@@ -653,6 +639,10 @@ const availableStudents = ref([]);
 const availablePromotions = ref([]);
 const availableGroups = ref([]);
 
+// Informations utilisateur connecté
+const currentUser = ref(null);
+const isAdmin = ref(false);
+
 // Pagination
 const pagination = ref({
   page: 1,
@@ -682,11 +672,11 @@ const currentEvaluation = ref({
   form: null,
   professor: null,
   student: null,
-  groupNumber: 0,
+  groupNumber: null,
   scores: {},
   promotion: null,
   group: null,
-  subgroup: ''
+  subgroup: null
 });
 
 const expandedSections = ref([]);
@@ -730,7 +720,10 @@ const formOptions = computed(() => {
 const promotionOptions = computed(() => {
   const options = [{ title: 'Toutes les promotions', value: null }];
   availablePromotions.value.forEach(promotion => {
-    options.push({ title: `${promotion.name} (${promotion.year})`, value: promotion._id });
+    options.push({ 
+      title: promotion.displayName || `${promotion.name} ${promotion.year}`, 
+      value: promotion._id 
+    });
   });
   return options;
 });
@@ -777,6 +770,7 @@ const canSaveEvaluation = computed(() => {
 
 // Chargement des données
 onMounted(async () => {
+  await loadCurrentUser();
   await Promise.all([
     loadEvaluations(),
     loadValidForms(),
@@ -852,6 +846,27 @@ const getNotationTypeLabel = (type) => {
 };
 
 // Méthodes de chargement des données
+const loadCurrentUser = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/auth/profile', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Utilisateur connecté:', data);
+      currentUser.value = data;
+      isAdmin.value = data.role === 'admin';
+    } else {
+      console.error('Erreur lors du chargement du profil - Status:', response.status);
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement du profil utilisateur:', error);
+  }
+};
+
 const loadEvaluations = async () => {
   loading.value = true;
   try {
@@ -874,7 +889,7 @@ const loadEvaluations = async () => {
     }
 
     const data = await response.json();
-    evaluations.value = data.evaluations || [];
+    evaluations.value = data.evaluations || data || [];
     filteredEvaluations.value = evaluations.value;
     
     if (data.pagination) {
@@ -903,7 +918,7 @@ const loadValidForms = async () => {
     
     if (response.ok) {
       const data = await response.json();
-      validForms.value = data.forms || [];
+      validForms.value = data.forms || data || [];
     }
   } catch (error) {
     console.error('Erreur lors du chargement des formulaires:', error);
@@ -914,7 +929,7 @@ const loadValidForms = async () => {
 
 const loadStudents = async () => {
   try {
-    const response = await fetch('http://localhost:5000/api/students/list', {
+    const response = await fetch('http://localhost:5000/api/students', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
@@ -942,7 +957,10 @@ const loadPromotions = async () => {
     
     if (response.ok) {
       const data = await response.json();
-      availablePromotions.value = data.promotions || data || [];
+      availablePromotions.value = (data.promotions || data || []).map(promotion => ({
+        ...promotion,
+        displayName: `${promotion.name} ${promotion.year}`
+      }));
     }
   } catch (error) {
     console.error('Erreur lors du chargement des promotions:', error);
@@ -985,6 +1003,7 @@ const selectForm = (form) => {
   selectedFormData.value = form;
   resetCurrentEvaluation();
   currentEvaluation.value.form = form._id;
+  currentEvaluation.value.professor = currentUser.value?._id; // Assigner automatiquement le professeur connecté
   selectFormDialog.value = false;
   evaluationDialog.value = true;
   expandedSections.value = form.sections?.map((_, index) => index) || [];
@@ -996,11 +1015,11 @@ const resetCurrentEvaluation = () => {
     form: null,
     professor: null,
     student: null,
-    groupNumber: 0,
+    groupNumber: null,
     scores: {},
     promotion: null,
     group: null,
-    subgroup: ''
+    subgroup: null
   };
 };
 
@@ -1019,7 +1038,7 @@ const saveEvaluation = async () => {
 
   saving.value = true;
   try {
-    // Transformer les scores en format attendu par l'API (avec lineId et score)
+    // Transformer les scores en format attendu par l'API
     const scores = Object.entries(currentEvaluation.value.scores).map(([lineId, score]) => ({
       lineId,
       score: Number(score)
@@ -1028,13 +1047,13 @@ const saveEvaluation = async () => {
     // Construire le payload selon le nouveau format de l'API
     const evaluationData = {
       formId: currentEvaluation.value.form,
-      professorId: getCurrentUser()?.id,
-      studentId: currentEvaluation.value.student || null,
-      groupNumber: currentEvaluation.value.groupNumber || 0,
+      professorId: currentEvaluation.value.professor,
+      studentId: currentEvaluation.value.student || undefined,
+      groupNumber: currentEvaluation.value.groupNumber || undefined,
       scores,
-      promotion: currentEvaluation.value.promotion || null,
-      group: currentEvaluation.value.group || null,
-      subgroup: currentEvaluation.value.subgroup || null
+      promotion: currentEvaluation.value.promotion || undefined,
+      group: currentEvaluation.value.group || undefined,
+      subgroup: currentEvaluation.value.subgroup || undefined
     };
 
     const url = currentEvaluation.value._id
@@ -1093,20 +1112,20 @@ const viewEvaluation = async (item) => {
       
       // Convertir les scores en format pour l'édition (avec lineId comme clé)
       const scores = {};
-      evaluation.scores.forEach(score => {
+      (evaluation.scores || []).forEach(score => {
         scores[score.lineId] = score.score;
       });
       
       currentEvaluation.value = {
         _id: evaluation._id,
         form: evaluation.form._id,
-        professor: evaluation.professor._id,
+        professor: evaluation.professor?._id || currentUser.value?._id,
         student: evaluation.student?._id || null,
-        groupNumber: evaluation.groupNumber || 0,
+        groupNumber: evaluation.groupNumber || null,
         scores,
         promotion: evaluation.promotion?._id || null,
         group: evaluation.group?._id || null,
-        subgroup: evaluation.subgroup || ''
+        subgroup: evaluation.subgroup?._id || null
       };
       
       evaluationDialog.value = true;
@@ -1162,10 +1181,9 @@ const exportEvaluation = async (item) => {
 };
 
 const exportAllEvaluations = async () => {
-  // Implémentation de l'export global
   snackbar.value = {
     show: true,
-    text: 'Fonctionnalité d\'export global en cours de développement',
+    text: 'Fonction d\'export global en cours de développement',
     color: 'info'
   };
 };
@@ -1212,43 +1230,7 @@ const deleteEvaluation = async () => {
   }
 };
 
-const getCurrentUser = () => {
-  // Fonction utilitaire pour récupérer l'utilisateur actuel
-  try {
-    const token = localStorage.getItem('token');
-    if (token) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload;
-    }
-  } catch (error) {
-    console.error('Erreur lors de la récupération de l\'utilisateur:', error);
-  }
-  return null;
-};
 
-// Validation des scores selon l'API
-const validateScores = async (formId, scores) => {
-  try {
-    const response = await fetch('http://localhost:5000/api/evaluations/validate-scores', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({ formId, scores })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Erreur de validation des scores');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Erreur lors de la validation des scores:', error);
-    throw error;
-  }
-};
 </script>
 
 <style scoped>

@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage.vue'
 import StudentsPage from './pages/StudentsPage.vue'
 import GroupsPage from './pages/GroupsPage.vue'
 import PromotionsPage from './pages/PromotionsPage.vue'
+import SubGroupsPage from './pages/SubGroupsPage.vue'
 import FormsPage from './pages/FormsPage.vue'
 import EvaluationsPage from './pages/EvaluationsPage.vue'
 import ExportPage from './pages/ExportPage.vue'
@@ -18,6 +19,7 @@ const routes = [
   { path: '/students', component: StudentsPage },
   { path: '/groups', component: GroupsPage },
   { path: '/promotions', component: PromotionsPage },
+  { path: '/subgroups', component: SubGroupsPage },
   { path: '/forms', component: FormsPage },
   { path: '/evaluations', component: EvaluationsPage },
   { path: '/export', component: ExportPage }

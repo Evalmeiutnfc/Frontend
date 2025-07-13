@@ -305,6 +305,9 @@
                   item-title="fullName"
                   item-value="_id"
                   :rules="[rules.required]"
+                  :disabled="!isAdmin"
+                  :hint="!isAdmin ? 'Vous êtes automatiquement sélectionné comme professeur responsable' : ''"
+                  :persistent-hint="!isAdmin"
                   required
                 />
               </v-col>
@@ -344,6 +347,30 @@
                       <div class="d-flex align-center">
                         <v-icon class="mr-2">mdi-account-group</v-icon>
                         <span>Évaluation par groupe</span>
+                      </div>
+                    </template>
+                  </v-radio>
+                  <v-radio
+                    label="Évaluation par sous-groupe"
+                    value="subgroup"
+                    color="primary"
+                  >
+                    <template v-slot:label>
+                      <div class="d-flex align-center">
+                        <v-icon class="mr-2">mdi-account-multiple-outline</v-icon>
+                        <span>Évaluation par sous-groupe</span>
+                      </div>
+                    </template>
+                  </v-radio>
+                  <v-radio
+                    label="Évaluation par promotion"
+                    value="promotion"
+                    color="primary"
+                  >
+                    <template v-slot:label>
+                      <div class="d-flex align-center">
+                        <v-icon class="mr-2">mdi-school</v-icon>
+                        <span>Évaluation par promotion</span>
                       </div>
                     </template>
                   </v-radio>
@@ -466,6 +493,71 @@
                     </span>
                   </template>
                 </v-select>
+              </v-col>
+
+              <!-- Association aux sous-groupes -->
+              <v-col cols="12" v-if="form.associationType === 'subgroup'">
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-account-multiple-outline</v-icon>
+                  Sélection des sous-groupes
+                </h4>
+                
+                <v-select
+                  v-model="form.subgroups"
+                  :items="availableSubGroups"
+                  label="Sous-groupes à évaluer"
+                  prepend-inner-icon="mdi-account-multiple-outline"
+                  variant="outlined"
+                  density="comfortable"
+                  item-title="name"
+                  item-value="_id"
+                  multiple
+                  chips
+                  closable-chips
+                  :rules="[rules.required]"
+                  hint="Sélectionnez les sous-groupes qui seront évalués"
+                  persistent-hint
+                >
+                  <template v-slot:selection="{ item, index }">
+                    <v-chip
+                      v-if="index < 3"
+                      :key="item.raw._id"
+                      size="small"
+                      closable
+                      @click:close="removeSubGroup(item.raw._id)"
+                    >
+                      {{ item.raw.name }}
+                    </v-chip>
+                    <span
+                      v-if="index === 3"
+                      class="text-grey text-caption align-self-center"
+                    >
+                      (+{{ form.subgroups.length - 3 }} autres)
+                    </span>
+                  </template>
+                </v-select>
+              </v-col>
+
+              <!-- Association aux promotions -->
+              <v-col cols="12" v-if="form.associationType === 'promotion'">
+                <h4 class="text-h6 font-weight-medium mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-school</v-icon>
+                  Sélection de la promotion
+                </h4>
+                
+                <v-select
+                  v-model="form.promotion"
+                  :items="availablePromotions"
+                  label="Promotion à évaluer"
+                  prepend-inner-icon="mdi-school"
+                  variant="outlined"
+                  density="comfortable"
+                  item-title="name"
+                  item-value="_id"
+                  :rules="[rules.required]"
+                  hint="Sélectionnez la promotion qui sera évaluée"
+                  persistent-hint
+                />
               </v-col>
 
               <!-- Sections du formulaire -->
@@ -705,7 +797,9 @@ const pagination = ref({
 // Options pour les filtres
 const associationTypeOptions = ref([
   { title: 'Étudiants', value: 'student' },
-  { title: 'Groupes', value: 'group' }
+  { title: 'Groupes', value: 'group' },
+  { title: 'Sous-groupes', value: 'subgroup' },
+  { title: 'Promotions', value: 'promotion' }
 ]);
 
 const statusOptions = ref([
@@ -718,6 +812,12 @@ const statusOptions = ref([
 const professors = ref([]);
 const availableStudents = ref([]);
 const availableGroups = ref([]);
+const availablePromotions = ref([]);
+const availableSubGroups = ref([]);
+
+// Informations utilisateur connecté
+const currentUser = ref(null);
+const isAdmin = ref(false);
 
 // État du dialogue
 const dialog = ref(false);
@@ -733,6 +833,8 @@ const form = ref({
   associationType: 'student',
   students: [],
   groups: [],
+  subgroups: [],
+  promotion: null,
   sections: [],
   validFrom: '',
   validTo: ''
@@ -786,9 +888,12 @@ const rules = {
 
 // Chargement des données au montage
 onMounted(async () => {
+  await loadCurrentUser();
   await loadProfessors();
   await loadStudents();
   await loadGroups();
+  await loadPromotions();
+  await loadSubGroups();
   await loadForms();
 });
 
@@ -850,9 +955,9 @@ const getScoreRules = (type) => {
 };
 
 // Méthodes de chargement des données
-const loadProfessors = async () => {
+const loadCurrentUser = async () => {
   try {
-    const response = await fetch('http://localhost:5000/api/users?role=professor', {
+    const response = await fetch('http://localhost:5000/api/auth/profile', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
@@ -860,13 +965,63 @@ const loadProfessors = async () => {
     
     if (response.ok) {
       const data = await response.json();
-      professors.value = (data.users || data || []).map(user => ({
+      console.log('Utilisateur connecté:', data);
+      currentUser.value = data;
+      isAdmin.value = data.role === 'admin';
+      console.log('Est admin:', isAdmin.value);
+      
+      // Si l'utilisateur n'est pas admin, on pré-sélectionne le professeur connecté
+      if (data.role === 'professor') {
+        form.value.professor = data._id;
+      }
+    } else {
+      console.error('Erreur lors du chargement du profil - Status:', response.status);
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement du profil utilisateur:', error);
+  }
+};
+
+const loadProfessors = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/auth/users/professors', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Données des professeurs reçues:', data);
+
+      // Gérer les différents formats de réponse possibles
+      let professorsList = [];
+      if (data.users && Array.isArray(data.users)) {
+        professorsList = data.users;
+      } else if (Array.isArray(data)) {
+        professorsList = data;
+      } else if (data.data && Array.isArray(data.data)) {
+        professorsList = data.data;
+      } else if (data.professors && Array.isArray(data.professors)) {
+        professorsList = data.professors;
+      }
+
+      professors.value = professorsList.map(user => ({
         ...user,
         fullName: `${user.firstName} ${user.lastName}`
       }));
+
+      console.log('Professeurs chargés:', professors.value);
+      console.log('Nombre de professeurs:', professors.value.length);
+    } else {
+      console.error('Erreur lors du chargement des professeurs - Status:', response.status);
+      const errorText = await response.text();
+      console.error('Détails de l\'erreur:', errorText);
+      professors.value = [];
     }
   } catch (error) {
     console.error('Erreur lors du chargement des professeurs:', error);
+    professors.value = [];
   }
 };
 
@@ -890,6 +1045,28 @@ const loadStudents = async () => {
   }
 };
 
+// Méthodes pour charger les promotions et les groupes
+const loadPromotions = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/promotions', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      availablePromotions.value = Array.isArray(data.promotions) ? data.promotions : [];
+    } else {
+      console.error('Erreur lors du chargement des promotions');
+      availablePromotions.value = [];
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des promotions:', error);
+    availablePromotions.value = [];
+  }
+};
+
 const loadGroups = async () => {
   try {
     const response = await fetch('http://localhost:5000/api/groups', {
@@ -897,13 +1074,34 @@ const loadGroups = async () => {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
-    
+
     if (response.ok) {
       const data = await response.json();
-      availableGroups.value = data.groups || data || [];
+      availableGroups.value = Array.isArray(data.groups) ? data.groups : [];
+    } else {
+      console.error('Erreur lors du chargement des groupes');
+      availableGroups.value = [];
     }
   } catch (error) {
     console.error('Erreur lors du chargement des groupes:', error);
+    availableGroups.value = [];
+  }
+};
+
+const loadSubGroups = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/subgroups/list', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      availableSubGroups.value = (data.subgroups || data || []);
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des sous-groupes:', error);
   }
 };
 
@@ -985,10 +1183,12 @@ const closeDialog = () => {
 const resetForm = () => {
   form.value = {
     title: '',
-    professor: '',
+    professor: currentUser.value && currentUser.value.role === 'professor' ? currentUser.value._id : '',
     associationType: 'student',
     students: [],
     groups: [],
+    subgroups: [],
+    promotion: null,
     sections: [],
     validFrom: '',
     validTo: ''
@@ -1000,6 +1200,8 @@ const resetForm = () => {
 const onAssociationTypeChange = () => {
   form.value.students = [];
   form.value.groups = [];
+  form.value.subgroups = [];
+  form.value.promotion = null;
 };
 
 const onLineTypeChange = (line) => {
@@ -1016,6 +1218,10 @@ const removeStudent = (studentId) => {
 
 const removeGroup = (groupId) => {
   form.value.groups = form.value.groups.filter(id => id !== groupId);
+};
+
+const removeSubGroup = (subGroupId) => {
+  form.value.subgroups = form.value.subgroups.filter(id => id !== subGroupId);
 };
 
 // Méthodes de gestion des sections
@@ -1059,6 +1265,14 @@ const saveForm = async () => {
       : 'http://localhost:5000/api/forms/add';
 
     const method = isEditing.value ? 'PUT' : 'POST';
+
+    // Validation des données avant l'envoi
+    if (form.value.associationType === 'promotion' && !form.value.promotion) {
+      throw new Error('Une promotion doit être sélectionnée pour ce type d\'association.');
+    }
+    if (form.value.associationType === 'subgroup' && form.value.subgroups.length === 0) {
+      throw new Error('Au moins un sous-groupe doit être sélectionné.');
+    }
 
     const response = await fetch(url, {
       method: method,

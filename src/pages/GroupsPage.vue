@@ -23,7 +23,7 @@
 
     <!-- Filtres -->
     <v-row>
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="6">
         <v-text-field
           v-model="search"
           label="Rechercher..."
@@ -34,18 +34,7 @@
           @input="debouncedSearch"
         ></v-text-field>
       </v-col>
-      <v-col cols="12" md="4">
-        <v-select
-          v-model="selectedYear"
-          :items="years"
-          label="Filtrer par année"
-          clearable
-          variant="outlined"
-          density="compact"
-          @update:modelValue="loadGroups"
-        ></v-select>
-      </v-col>
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="6">
         <v-select
           v-model="selectedPromotion"
           :items="promotions"
@@ -77,38 +66,18 @@
             </div>
           </template>
 
-          <template v-slot:item.year="{ item }">
-            <v-chip 
-              color="primary" 
-              size="small" 
-              variant="tonal"
-              prepend-icon="mdi-calendar-clock"
-            >
-              {{ item.year }}
-            </v-chip>
-          </template>
-
           <template v-slot:item.promotion="{ item }">
             <div class="d-flex align-center">
               <v-icon color="secondary" size="small" class="me-2">mdi-school</v-icon>
               <div>
-                <div class="font-weight-medium">{{ item.promotion?.name || item.promotion }}</div>
+                <div class="font-weight-medium">
+                  {{ item.promotion?.name || 'Non définie' }}
+                </div>
                 <div class="text-caption text-medium-emphasis" v-if="item.promotion?.year">
                   Année {{ item.promotion.year }}
                 </div>
               </div>
             </div>
-          </template>
-
-          <template v-slot:item.subgroupsCount="{ item }">
-            <v-chip 
-              color="info" 
-              size="small" 
-              variant="tonal"
-              prepend-icon="mdi-account-multiple"
-            >
-              {{ item.subgroupsCount || 0 }}
-            </v-chip>
           </template>
 
           <template v-slot:item.actions="{ item }">
@@ -158,7 +127,7 @@
         <v-card-text>
           <v-form ref="groupForm" v-model="formValid" lazy-validation>
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col cols="12">
                 <v-text-field
                   v-model="group.name"
                   label="Nom du groupe"
@@ -167,17 +136,6 @@
                   variant="outlined"
                   prepend-inner-icon="mdi-account-group"
                 ></v-text-field>
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-select
-                  v-model="group.year"
-                  :items="years"
-                  label="Année"
-                  required
-                  :rules="[v => !!v || 'L\'année est requise']"
-                  variant="outlined"
-                  prepend-inner-icon="mdi-calendar-clock"
-                ></v-select>
               </v-col>
               <v-col cols="12">
                 <v-select
@@ -188,7 +146,20 @@
                   :rules="[v => !!v || 'La promotion est requise']"
                   variant="outlined"
                   prepend-inner-icon="mdi-school"
+                  item-title="title"
+                  item-value="value"
                 ></v-select>
+              </v-col>
+              <v-col cols="12">
+                <v-textarea
+                  v-model="group.description"
+                  label="Description (optionnel)"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-text"
+                  rows="3"
+                  placeholder="Description du groupe..."
+                ></v-textarea>
               </v-col>
             </v-row>
           </v-form>
@@ -227,7 +198,17 @@
               </template>
               <v-list-item-title>{{ subgroup.name }}</v-list-item-title>
               <v-list-item-subtitle>
-                {{ subgroup.students?.length || 0 }} étudiant(s)
+                <div class="d-flex align-center gap-2">
+                  <v-chip 
+                    size="x-small" 
+                    color="secondary" 
+                    variant="tonal"
+                    v-if="subgroup.type"
+                  >
+                    {{ subgroup.type }}
+                  </v-chip>
+                  <span>{{ subgroup.students?.length || 0 }} étudiant(s)</span>
+                </div>
               </v-list-item-subtitle>
               <template v-slot:append>
                 <v-btn
@@ -264,7 +245,18 @@
               label="Nom du sous-groupe"
               required
               :rules="[v => !!v || 'Le nom du sous-groupe est requis']"
+              variant="outlined"
+              prepend-inner-icon="mdi-account-multiple"
+              class="mb-3"
             ></v-text-field>
+            <v-select
+              v-model="newSubgroup.type"
+              :items="['Travaux Pratiques', 'Projet', 'TD', 'Cours', 'Autre']"
+              label="Type de sous-groupe"
+              variant="outlined"
+              prepend-inner-icon="mdi-shape"
+              class="mb-3"
+            ></v-select>
             <v-select
               v-model="newSubgroup.students"
               :items="availableStudents"
@@ -274,6 +266,9 @@
               multiple
               chips
               closable-chips
+              variant="outlined"
+              prepend-inner-icon="mdi-account-group"
+              placeholder="Sélectionner des étudiants..."
             ></v-select>
           </v-form>
         </v-card-text>
@@ -330,7 +325,6 @@ const debounce = (func, wait) => {
 const loading = ref(false);
 const groups = ref([]);
 const search = ref('');
-const selectedYear = ref(null);
 const selectedPromotion = ref(null);
 
 // Pagination
@@ -344,15 +338,14 @@ const pagination = ref({
 });
 
 // Listes de référence
-const years = ref(['BUT1', 'BUT2', 'BUT3']);
 const promotions = ref([]);
 const availableStudents = ref([]);
 
 // Modèle groupe
 const group = ref({
   name: '',
-  year: '',
-  promotion: ''
+  promotion: '',
+  description: ''
 });
 
 // Sous-groupes
@@ -360,15 +353,14 @@ const subgroups = ref([]);
 const selectedGroup = ref(null);
 const newSubgroup = ref({
   name: '',
+  type: 'Travaux Pratiques',
   students: []
 });
 
 // En-têtes du tableau
 const headers = ref([
   { title: 'Nom du groupe', align: 'start', key: 'name' },
-  { title: 'Année', align: 'start', key: 'year' },
   { title: 'Promotion', align: 'start', key: 'promotion' },
-  { title: 'Sous-groupes', align: 'start', key: 'subgroupsCount' },
   { title: 'Actions', align: 'end', key: 'actions', sortable: false }
 ]);
 
@@ -399,6 +391,13 @@ const debouncedSearch = debounce(() => {
   loadGroups();
 }, 300);
 
+// Gestion des options du tableau (pagination, tri, etc.)
+const handleTableOptions = (options) => {
+  pagination.value.page = options.page;
+  pagination.value.limit = options.itemsPerPage;
+  loadGroups();
+};
+
 // Chargement des données
 const loadGroups = async () => {
   loading.value = true;
@@ -407,12 +406,12 @@ const loadGroups = async () => {
       page: pagination.value.page.toString(),
       limit: pagination.value.limit.toString(),
       search: search.value || '',
-      year: selectedYear.value || '',
       promotion: selectedPromotion.value || ''
     });
 
     const response = await fetch(`http://localhost:5000/api/groups?${queryParams.toString()}`, {
       headers: {
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
@@ -423,9 +422,12 @@ const loadGroups = async () => {
 
     const data = await response.json();
     groups.value = data.groups;
-    pagination.value = data.pagination;
+    pagination.value.total = data.total;
+    pagination.value.pages = data.pages;
+    pagination.value.hasNextPage = data.hasNextPage;
+    pagination.value.hasPrevPage = data.hasPrevPage;
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error(error);
     snackbar.value = {
       show: true,
       text: 'Erreur lors du chargement des groupes',
@@ -436,65 +438,16 @@ const loadGroups = async () => {
   }
 };
 
-const loadPromotions = async () => {
-  try {
-    const response = await fetch('http://localhost:5000/api/promotions', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      // Garder les objets promotions complets pour l'affichage
-      if (data.promotions) {
-        promotions.value = data.promotions.map(promo => promo.name);
-      } else {
-        // Si la réponse est directement un tableau
-        promotions.value = data.map(promo => promo.name || promo.toString());
-      }
-    } else {
-      // Valeurs par défaut si l'API n'est pas disponible
-      promotions.value = ['2023', '2024', '2025', '2026'];
-    }
-  } catch (error) {
-    console.error('Erreur lors du chargement des promotions:', error);
-    // Valeurs par défaut en cas d'erreur
-    promotions.value = ['2023', '2024', '2025', '2026'];
-  }
-};
-
-const loadStudents = async () => {
-  try {
-    const response = await fetch('http://localhost:5000/api/students/list', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      availableStudents.value = data.map(student => ({
-        ...student,
-        fullName: `${student.firstName} ${student.lastName}`
-      }));
-    }
-  } catch (error) {
-    console.error('Erreur lors du chargement des étudiants:', error);
-  }
-};
-
-const handleTableOptions = (options) => {
-  pagination.value.page = options.page;
-  pagination.value.limit = options.itemsPerPage;
-  loadGroups();
-};
-
-const editGroup = async (item) => {
-  isEditing.value = true;
-  group.value = { ...item, promotion: item.promotion?._id || item.promotion };
+// Ouverture du dialogue d'ajout de groupe
+const openAddGroupDialog = async () => {
+  group.value = {
+    name: '',
+    promotion: '',
+    description: ''
+  };
+  isEditing.value = false;
   
-  // S'assurer que les promotions sont chargées
+  // Charger les promotions si elles ne sont pas déjà chargées
   if (promotions.value.length === 0) {
     await loadPromotions();
   }
@@ -502,22 +455,67 @@ const editGroup = async (item) => {
   dialogOpen.value = true;
 };
 
-const confirmDelete = (item) => {
-  groupToDelete.value = item;
-  deleteDialog.value = true;
+// Chargement des promotions
+const loadPromotions = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/promotions', {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors du chargement des promotions');
+    }
+
+    const data = await response.json();
+    console.log('Promotions chargées :', data);
+    
+    // Adapter les promotions pour le v-select
+    if (data.promotions && Array.isArray(data.promotions)) {
+      promotions.value = data.promotions.map(promo => ({
+        title: `${promo.name} (${promo.year})`,
+        value: promo._id
+      }));
+    } else {
+      promotions.value = [];
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des promotions:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors du chargement des promotions',
+      color: 'error'
+    };
+  }
 };
 
-const saveGroup = async () => {
-  // Valider le formulaire avant de sauvegarder
-  if (!groupForm.value) return;
+// Édition d'un groupe
+const editGroup = async (item) => {
+  isEditing.value = true;
+  group.value = { 
+    ...item, 
+    promotion: item.promotion?._id || item.promotion 
+  };
   
-  const { valid } = await groupForm.value.validate();
-  if (!valid) return;
+  // Charger les promotions si elles ne sont pas déjà chargées
+  if (promotions.value.length === 0) {
+    await loadPromotions();
+  }
+  
+  dialogOpen.value = true;
+};
 
+// Sauvegarde du groupe (ajout ou modification)
+const saveGroup = async () => {
+  if (!formValid.value) return;
+
+  loading.value = true;
   try {
     const url = isEditing.value
-      ? `http://localhost:5000/api/groups/${group.value._id}`
-      : 'http://localhost:5000/api/groups';
+      ? `http://localhost:5000/api/groups/update/${group.value._id}`
+      : 'http://localhost:5000/api/groups/add';
 
     const method = isEditing.value ? 'PUT' : 'POST';
 
@@ -529,13 +527,14 @@ const saveGroup = async () => {
       },
       body: JSON.stringify({
         name: group.value.name,
-        year: group.value.year,
-        promotion: group.value.promotion
+        promotion: group.value.promotion,
+        description: group.value.description
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Erreur lors de l'${isEditing.value ? 'édition' : 'ajout'} du groupe`);
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Erreur lors de la sauvegarde du groupe');
     }
 
     snackbar.value = {
@@ -545,95 +544,79 @@ const saveGroup = async () => {
     };
 
     dialogOpen.value = false;
-    resetForm();
-    await loadGroups();
+    loadGroups();
   } catch (error) {
     console.error('Erreur:', error);
     snackbar.value = {
       show: true,
-      text: `Erreur lors de l'${isEditing.value ? 'édition' : 'ajout'} du groupe`,
+      text: error.message || 'Erreur lors de la sauvegarde du groupe',
       color: 'error'
     };
+  } finally {
+    loading.value = false;
   }
 };
 
-const deleteGroup = async () => {
-  if (!groupToDelete.value) return;
+// Ouverture du dialogue de visualisation des sous-groupes
+const viewSubgroups = (group) => {
+  selectedGroup.value = group;
+  subgroupsDialog.value = true;
+  loadSubgroups(group._id);
+};
 
+// Chargement des sous-groupes d'un groupe
+const loadSubgroups = async (groupId) => {
+  loading.value = true;
   try {
-    const response = await fetch(`http://localhost:5000/api/groups/${groupToDelete.value._id}`, {
-      method: 'DELETE',
+    const response = await fetch(`http://localhost:5000/api/groups/${groupId}/subgroups`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Content-Type': 'application/json'
       }
     });
 
     if (!response.ok) {
-      throw new Error('Erreur lors de la suppression du groupe');
+      throw new Error('Erreur lors du chargement des sous-groupes');
     }
 
-    snackbar.value = {
-      show: true,
-      text: 'Groupe supprimé avec succès',
-      color: 'success'
-    };
-
-    deleteDialog.value = false;
-    groupToDelete.value = null;
-    await loadGroups();
+    const data = await response.json();
+    subgroups.value = data.subgroups;
   } catch (error) {
-    console.error('Erreur:', error);
-    snackbar.value = {
-      show: true,
-      text: 'Erreur lors de la suppression du groupe',
-      color: 'error'
-    };
-  }
-};
-
-const viewSubgroups = async (groupItem) => {
-  selectedGroup.value = groupItem;
-  try {
-    const response = await fetch(`http://localhost:5000/api/groups/${groupItem._id}/subgroups`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      subgroups.value = data;
-      subgroupsDialog.value = true;
-    }
-  } catch (error) {
-    console.error('Erreur:', error);
+    console.error(error);
     snackbar.value = {
       show: true,
       text: 'Erreur lors du chargement des sous-groupes',
       color: 'error'
     };
+  } finally {
+    loading.value = false;
   }
 };
 
+// Ouverture du dialogue d'ajout de sous-groupe
 const openAddSubgroupDialog = () => {
-  newSubgroup.value = { name: '', students: [] };
+  newSubgroup.value = {
+    name: '',
+    type: 'Travaux Pratiques',
+    students: []
+  };
   subgroupDialog.value = true;
 };
 
+// Ajout d'un sous-groupe
 const addSubgroup = async () => {
-  if (!selectedGroup.value || !subgroupForm.value) return;
+  if (!subgroupFormValid.value) return;
 
-  const { valid } = await subgroupForm.value.validate();
-  if (!valid) return;
-
+  loading.value = true;
   try {
-    const response = await fetch(`http://localhost:5000/api/groups/${selectedGroup.value._id}/subgroups`, {
+    const response = await fetch(`http://localhost:5000/api/subgroups`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(newSubgroup.value)
+      body: JSON.stringify({
+        ...newSubgroup.value,
+        groupId: selectedGroup.value._id
+      })
     });
 
     if (!response.ok) {
@@ -647,113 +630,87 @@ const addSubgroup = async () => {
     };
 
     subgroupDialog.value = false;
-    await viewSubgroups(selectedGroup.value);
+    loadSubgroups(selectedGroup.value._id);
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error(error);
     snackbar.value = {
       show: true,
       text: 'Erreur lors de l\'ajout du sous-groupe',
       color: 'error'
     };
+  } finally {
+    loading.value = false;
   }
 };
 
-const removeSubgroup = async (subgroupId) => {
-  if (!selectedGroup.value) return;
+// Confirmation de suppression d'un groupe
+const confirmDelete = (group) => {
+  groupToDelete.value = group;
+  deleteDialog.value = true;
+};
 
+// Suppression d'un groupe
+const deleteGroup = async () => {
+  if (!groupToDelete.value) return;
+
+  console.log('Tentative de suppression du groupe avec ID :', groupToDelete.value._id);
+
+  loading.value = true;
   try {
-    const response = await fetch(`http://localhost:5000/api/groups/${selectedGroup.value._id}/subgroups/${subgroupId}`, {
+    const response = await fetch(`http://localhost:5000/api/groups/delete/${groupToDelete.value._id}`, {
       method: 'DELETE',
       headers: {
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
 
     if (!response.ok) {
-      throw new Error('Erreur lors de la suppression du sous-groupe');
+      const errorData = await response.json();
+      console.error('Erreur retournée par le backend :', errorData);
+      throw new Error(errorData.message || 'Erreur lors de la suppression du groupe');
     }
 
     snackbar.value = {
       show: true,
-      text: 'Sous-groupe supprimé avec succès',
+      text: 'Groupe supprimé avec succès',
       color: 'success'
     };
 
-    await viewSubgroups(selectedGroup.value);
+    deleteDialog.value = false;
+    groupToDelete.value = null;
+    loadGroups();
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error('Erreur lors de la suppression du groupe :', error);
     snackbar.value = {
       show: true,
-      text: 'Erreur lors de la suppression du sous-groupe',
+      text: error.message || 'Erreur lors de la suppression du groupe',
       color: 'error'
     };
+  } finally {
+    loading.value = false;
   }
 };
 
-const resetForm = () => {
-  group.value = {
-    name: '',
-    year: '',
-    promotion: ''
-  };
-  isEditing.value = false;
-  formValid.value = false;
-  
-  // Réinitialiser la validation du formulaire
-  if (groupForm.value) {
-    groupForm.value.resetValidation();
-  }
-};
-
-const openAddGroupDialog = async () => {
-  resetForm();
-  // S'assurer que les promotions sont chargées
-  if (promotions.value.length === 0) {
-    await loadPromotions();
-  }
-  dialogOpen.value = true;
-};
-
-// Initialisation
 onMounted(async () => {
-  await Promise.all([
-    loadGroups(),
-    loadPromotions(),
-    loadStudents()
-  ]);
+  await loadGroups();
+  await loadPromotions();
+  
+  // Chargement des étudiants disponibles
+  try {
+    const response = await fetch('http://localhost:5000/api/students', {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      availableStudents.value = data.students || [];
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des étudiants:', error);
+  }
 });
 </script>
-
-<style scoped>
-/* Amélioration de l'apparence */
-.v-data-table {
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.v-chip {
-  font-weight: 500;
-}
-
-.v-card {
-  border-radius: 12px;
-}
-
-.v-dialog .v-card {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-}
-
-.v-list-item.border {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
-}
-
-.v-list-item.border:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
-}
-
-.text-medium-emphasis {
-  opacity: 0.7;
-}
-</style>
