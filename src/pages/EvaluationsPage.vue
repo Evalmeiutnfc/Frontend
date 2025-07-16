@@ -373,6 +373,13 @@
               </h3>
               <p class="text-subtitle-1 text-medium-emphasis mb-0">
                 {{ selectedFormData.title }}
+                <v-chip v-if="selectedFormData.students && selectedFormData.students.length > 0" 
+                       size="small" 
+                       color="info" 
+                       variant="outlined" 
+                       class="ml-2">
+                  {{ selectedFormData.students.length }} étudiant(s) assigné(s)
+                </v-chip>
               </p>
             </div>
           </div>
@@ -394,7 +401,7 @@
               <v-col cols="12" md="6" v-if="selectedFormData.associationType === 'student'">
                 <v-select
                   v-model="currentEvaluation.student"
-                  :items="availableStudents"
+                  :items="studentsForEvaluation"
                   label="Étudiant à évaluer"
                   prepend-inner-icon="mdi-account"
                   variant="outlined"
@@ -403,53 +410,113 @@
                   item-value="_id"
                   :rules="[rules.required]"
                   required
-                />
+                  :loading="loadingForms"
+                  :disabled="studentsForEvaluation.length === 0"
+                  :hint="getStudentSelectHint()"
+                  persistent-hint
+                >
+                  <template v-slot:append-inner v-if="studentsForEvaluation.length === 0">
+                    <v-btn
+                      icon="mdi-refresh"
+                      variant="text"
+                      size="small"
+                      @click="loadStudents"
+                      :loading="loading"
+                    >
+                      <v-icon size="small">mdi-refresh</v-icon>
+                      <v-tooltip activator="parent" location="top">Recharger les étudiants</v-tooltip>
+                    </v-btn>
+                  </template>
+                </v-select>
               </v-col>
               
               <v-col cols="12" md="6" v-if="selectedFormData.associationType === 'group'">
-                <v-text-field
-                  v-model.number="currentEvaluation.groupNumber"
-                  label="Numéro de groupe"
-                  prepend-inner-icon="mdi-account-group"
-                  variant="outlined"
-                  density="comfortable"
-                  type="number"
-                  :rules="[rules.required, rules.isNumber]"
-                  required
-                />
-              </v-col>
-              
-              <v-col cols="12" md="6">
-                <v-select
-                  v-model="currentEvaluation.promotion"
-                  :items="availablePromotions"
-                  label="Promotion"
-                  prepend-inner-icon="mdi-school"
-                  variant="outlined"
-                  density="comfortable"
-                  item-title="displayName"
-                  item-value="_id"
-                  clearable
-                />
-              </v-col>
-              
-              <v-col cols="12" md="6">
                 <v-select
                   v-model="currentEvaluation.group"
-                  :items="availableGroups"
-                  label="Groupe TD"
+                  :items="groupsForEvaluation"
+                  label="Groupe à évaluer"
                   prepend-inner-icon="mdi-account-group"
                   variant="outlined"
                   density="comfortable"
                   item-title="name"
                   item-value="_id"
-                  clearable
-                />
+                  :rules="[rules.required]"
+                  required
+                  :loading="loadingForms"
+                  :disabled="groupsForEvaluation.length === 0"
+                  hint="Sélectionnez le groupe assigné à ce formulaire"
+                  persistent-hint
+                >
+                  <template v-slot:append-inner v-if="groupsForEvaluation.length === 0">
+                    <v-btn
+                      icon="mdi-refresh"
+                      variant="text"
+                      size="small"
+                      @click="loadGroups"
+                      :loading="loading"
+                    >
+                      <v-icon size="small">mdi-refresh</v-icon>
+                      <v-tooltip activator="parent" location="top">Recharger les groupes</v-tooltip>
+                    </v-btn>
+                  </template>
+                </v-select>
+              </v-col>
+              
+              <v-col cols="12" md="6" v-if="selectedFormData.associationType === 'subgroup'">
+                <v-select
+                  v-model="currentEvaluation.subgroup"
+                  :items="subgroupsForEvaluation"
+                  label="Sous-groupe à évaluer"
+                  prepend-inner-icon="mdi-account-group-outline"
+                  variant="outlined"
+                  density="comfortable"
+                  item-title="name"
+                  item-value="_id"
+                  :rules="[rules.required]"
+                  required
+                  :loading="loadingForms"
+                  :disabled="subgroupsForEvaluation.length === 0"
+                  hint="Sélectionnez le sous-groupe assigné à ce formulaire"
+                  persistent-hint
+                >
+                  <template v-slot:append-inner v-if="subgroupsForEvaluation.length === 0">
+                    <v-btn
+                      icon="mdi-refresh"
+                      variant="text"
+                      size="small"
+                      @click="loadSubgroups"
+                      :loading="loading"
+                    >
+                      <v-icon size="small">mdi-refresh</v-icon>
+                      <v-tooltip activator="parent" location="top">Recharger les sous-groupes</v-tooltip>
+                    </v-btn>
+                  </template>
+                </v-select>
+              </v-col>
+              
+              <v-col cols="12" md="6" v-if="selectedFormData.associationType === 'promotion'">
+                <v-select
+                  v-model="currentEvaluation.promotion"
+                  :items="promotionForEvaluation ? [promotionForEvaluation] : []"
+                  label="Promotion à évaluer"
+                  prepend-inner-icon="mdi-school"
+                  variant="outlined"
+                  density="comfortable"
+                  item-title="displayName"
+                  item-value="_id"
+                  :rules="[rules.required]"
+                  required
+                  :loading="loadingForms"
+                  :disabled="!promotionForEvaluation"
+                  hint="Promotion assignée à ce formulaire"
+                  persistent-hint
+                >
+                </v-select>
               </v-col>
             </v-row>
 
             <!-- Sections d'évaluation -->
-            <div v-if="hasValidTarget">
+            <div v-if="hasValidTarget && selectedFormData?.sections">
               <h4 class="text-h6 font-weight-medium mb-3">
                 <v-icon color="primary" class="mr-2">mdi-clipboard-check</v-icon>
                 Critères d'évaluation
@@ -465,26 +532,26 @@
                     <div class="d-flex align-center w-100">
                       <v-icon class="mr-3">mdi-folder-outline</v-icon>
                       <div class="flex-grow-1">
-                        <div class="font-weight-medium">{{ section.title }}</div>
+                        <div class="font-weight-medium">{{ section?.title || 'Section sans titre' }}</div>
                         <div class="text-caption text-medium-emphasis">
-                          {{ section.lines.length }} critère{{ section.lines.length > 1 ? 's' : '' }}
+                          {{ section?.lines?.length || 0 }} critère{{ (section?.lines?.length || 0) > 1 ? 's' : '' }}
                         </div>
                       </div>
                       <v-chip size="small" :color="getSectionCompletionColor(sectionIndex)" variant="flat">
-                        {{ getCompletedCriteria(sectionIndex) }}/{{ section.lines.length }}
+                        {{ getCompletedCriteria(sectionIndex) }}/{{ section?.lines?.length || 0 }}
                       </v-chip>
                     </div>
                   </v-expansion-panel-title>
                   
                   <v-expansion-panel-text>
-                    <v-row>
+                    <v-row v-if="section?.lines && section.lines.length > 0">
                       <v-col
                         v-for="(line, lineIndex) in section.lines"
                         :key="lineIndex"
                         cols="12"
                         md="6"
                       >
-                        <v-card variant="outlined" class="pa-4">
+                        <v-card v-if="line && line._id && line.title" variant="outlined" class="pa-4">
                           <div class="text-subtitle-2 mb-3 font-weight-medium">
                             {{ line.title }}
                           </div>
@@ -500,36 +567,168 @@
                           
                           <!-- Notation binaire -->
                           <div v-if="line.type === 'binary'">
-                            <v-radio-group
-                              v-model="currentEvaluation.scores[line._id]"
-                              inline
-                              hide-details
-                            >
-                              <v-radio label="Non" :value="0" color="error" />
-                              <v-radio label="Oui" :value="1" color="success" />
-                            </v-radio-group>
+                            <!-- Notation commune -->
+                            <div v-if="line.notationType === 'common'">
+                              <v-radio-group
+                                v-model="currentEvaluation.scores[line._id].commonScore"
+                                inline
+                                hide-details
+                              >
+                                <v-radio label="Non" :value="0" color="error" />
+                                <v-radio label="Oui" :value="1" color="success" />
+                              </v-radio-group>
+                            </div>
+                            
+                            <!-- Notation individuelle -->
+                            <div v-else-if="line.notationType === 'individual'">
+                              <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-2">
+                                <div class="text-caption mb-1">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
+                                <v-radio-group
+                                  :model-value="getIndividualScore(line._id, student?._id)"
+                                  @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
+                                  inline
+                                  hide-details
+                                >
+                                  <v-radio label="Non" :value="0" color="error" />
+                                  <v-radio label="Oui" :value="1" color="success" />
+                                </v-radio-group>
+                              </div>
+                            </div>
+                            
+                            <!-- Notation mixte -->
+                            <div v-else-if="line.notationType === 'mixed'">
+                              <div class="mb-3">
+                                <div class="text-caption mb-1">Score commun</div>
+                                <v-radio-group
+                                  v-model="currentEvaluation.scores[line._id].commonScore"
+                                  inline
+                                  hide-details
+                                >
+                                  <v-radio label="Non" :value="0" color="error" />
+                                  <v-radio label="Oui" :value="1" color="success" />
+                                </v-radio-group>
+                              </div>
+                              
+                              <v-divider class="my-2" />
+                              
+                              <div>
+                                <div class="text-caption mb-2">Scores individuels (optionnel)</div>
+                                <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-2">
+                                  <div class="text-caption mb-1">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
+                                  <v-radio-group
+                                    :model-value="getIndividualScore(line._id, student?._id)"
+                                    @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
+                                    inline
+                                    hide-details
+                                  >
+                                    <v-radio label="Non défini" :value="null" />
+                                    <v-radio label="Non" :value="0" color="error" />
+                                    <v-radio label="Oui" :value="1" color="success" />
+                                  </v-radio-group>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                           
                           <!-- Notation par échelle -->
                           <div v-else-if="line.type === 'scale'">
-                            <v-slider
-                              v-model="currentEvaluation.scores[line._id]"
-                              :min="0"
-                              :max="line.maxScore"
-                              :step="1"
-                              show-ticks="always"
-                              tick-size="4"
-                              thumb-label
-                              color="primary"
-                            >
-                              <template v-slot:thumb-label="{ modelValue }">
-                                {{ modelValue }}/{{ line.maxScore }}
-                              </template>
-                            </v-slider>
-                            <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-                              <span>0 - Insuffisant</span>
-                              <span>{{ Math.floor(line.maxScore / 2) }} - Satisfaisant</span>
-                              <span>{{ line.maxScore }} - Excellent</span>
+                            <!-- Notation commune -->
+                            <div v-if="line.notationType === 'common'">
+                              <v-slider
+                                v-model="currentEvaluation.scores[line._id].commonScore"
+                                :min="0"
+                                :max="line.maxScore"
+                                :step="1"
+                                show-ticks="always"
+                                tick-size="4"
+                                thumb-label
+                                color="primary"
+                              >
+                                <template v-slot:thumb-label="{ modelValue }">
+                                  {{ modelValue }}/{{ line.maxScore }}
+                                </template>
+                              </v-slider>
+                              <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+                                <span>0 - Insuffisant</span>
+                                <span>{{ Math.floor(line.maxScore / 2) }} - Satisfaisant</span>
+                                <span>{{ line.maxScore }} - Excellent</span>
+                              </div>
+                            </div>
+                            
+                            <!-- Notation individuelle -->
+                            <div v-else-if="line.notationType === 'individual'">
+                              <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-4">
+                                <div class="text-caption mb-2">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
+                                <v-slider
+                                  :model-value="getIndividualScore(line._id, student?._id)"
+                                  @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
+                                  :min="0"
+                                  :max="line.maxScore"
+                                  :step="1"
+                                  show-ticks="always"
+                                  tick-size="4"
+                                  thumb-label
+                                  color="primary"
+                                >
+                                  <template v-slot:thumb-label="{ modelValue }">
+                                    {{ modelValue }}/{{ line.maxScore }}
+                                  </template>
+                                </v-slider>
+                              </div>
+                            </div>
+                            
+                            <!-- Notation mixte -->
+                            <div v-else-if="line.notationType === 'mixed'">
+                              <div class="mb-4">
+                                <div class="text-caption mb-2">Score commun</div>
+                                <v-slider
+                                  v-model="currentEvaluation.scores[line._id].commonScore"
+                                  :min="0"
+                                  :max="line.maxScore"
+                                  :step="1"
+                                  show-ticks="always"
+                                  tick-size="4"
+                                  thumb-label
+                                  color="primary"
+                                >
+                                  <template v-slot:thumb-label="{ modelValue }">
+                                    {{ modelValue }}/{{ line.maxScore }}
+                                  </template>
+                                </v-slider>
+                              </div>
+                              
+                              <v-divider class="my-3" />
+                              
+                              <div>
+                                <div class="text-caption mb-2">Scores individuels (optionnel)</div>
+                                <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-3">
+                                  <div class="text-caption mb-1">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
+                                  <v-checkbox
+                                    :model-value="hasIndividualScore(line._id, student?._id)"
+                                    @update:model-value="(enabled) => toggleIndividualScore(line._id, student?._id, enabled)"
+                                    label="Score individuel spécifique"
+                                    density="compact"
+                                    hide-details
+                                    class="mb-2"
+                                  />
+                                  <v-slider
+                                    v-if="hasIndividualScore(line._id, student?._id)"
+                                    :model-value="getIndividualScore(line._id, student?._id)"
+                                    @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
+                                    :min="0"
+                                    :max="line.maxScore"
+                                    :step="1"
+                                    show-ticks="always"
+                                    tick-size="4"
+                                    thumb-label
+                                    color="primary"
+                                  >
+                                    <template v-slot:thumb-label="{ modelValue }">
+                                      {{ modelValue }}/{{ line.maxScore }}
+                                    </template>
+                                  </v-slider>
+                                </div>
+                              </div>
                             </div>
                           </div>
                           
@@ -541,6 +740,9 @@
                         </v-card>
                       </v-col>
                     </v-row>
+                    <div v-else class="text-center pa-4 text-medium-emphasis">
+                      Aucun critère défini pour cette section
+                    </div>
                   </v-expansion-panel-text>
                 </v-expansion-panel>
               </v-expansion-panels>
@@ -638,6 +840,7 @@ const validForms = ref([]);
 const availableStudents = ref([]);
 const availablePromotions = ref([]);
 const availableGroups = ref([]);
+const availableSubgroups = ref([]);
 
 // Informations utilisateur connecté
 const currentUser = ref(null);
@@ -672,11 +875,13 @@ const currentEvaluation = ref({
   form: null,
   professor: null,
   student: null,
+  group: null,
+  subgroup: null,
+  promotion: null,
   groupNumber: null,
   scores: {},
-  promotion: null,
-  group: null,
-  subgroup: null
+  evaluationType: null,
+  targetStudents: []
 });
 
 const expandedSections = ref([]);
@@ -743,11 +948,81 @@ const filteredValidForms = computed(() => {
   );
 });
 
+// Computed property pour les étudiants disponibles selon le contexte
+const studentsForEvaluation = computed(() => {
+  if (!selectedFormData.value || selectedFormData.value.associationType !== 'student') return [];
+  
+  // Priorité aux étudiants assignés spécifiquement au formulaire
+  if (selectedFormData.value.students && selectedFormData.value.students.length > 0) {
+    console.log('Utilisation des étudiants assignés au formulaire:', selectedFormData.value.students.length);
+    return selectedFormData.value.students.map(student => ({
+      ...student,
+      fullName: `${student.firstName} ${student.lastName}`
+    }));
+  }
+  
+  // Fallback vers tous les étudiants disponibles
+  console.log('Formulaire individuel - utilisation de tous les étudiants disponibles:', availableStudents.value.length);
+  return availableStudents.value;
+});
+
+// Computed property pour les groupes disponibles selon le contexte
+const groupsForEvaluation = computed(() => {
+  if (!selectedFormData.value || selectedFormData.value.associationType !== 'group') return [];
+  
+  // Priorité aux groupes assignés spécifiquement au formulaire
+  if (selectedFormData.value.groups && selectedFormData.value.groups.length > 0) {
+    console.log('Utilisation des groupes assignés au formulaire:', selectedFormData.value.groups.length);
+    return selectedFormData.value.groups;
+  }
+  
+  // Fallback vers tous les groupes disponibles
+  console.log('Formulaire de groupe - utilisation de tous les groupes disponibles:', availableGroups.value.length);
+  return availableGroups.value;
+});
+
+// Computed property pour les sous-groupes disponibles selon le contexte
+const subgroupsForEvaluation = computed(() => {
+  if (!selectedFormData.value || selectedFormData.value.associationType !== 'subgroup') return [];
+  
+  // Priorité aux sous-groupes assignés spécifiquement au formulaire
+  if (selectedFormData.value.subgroups && selectedFormData.value.subgroups.length > 0) {
+    console.log('Utilisation des sous-groupes assignés au formulaire:', selectedFormData.value.subgroups.length);
+    return selectedFormData.value.subgroups;
+  }
+  
+  // Fallback vers tous les sous-groupes disponibles
+  console.log('Formulaire de sous-groupe - utilisation de tous les sous-groupes disponibles:', availableSubgroups.value.length);
+  return availableSubgroups.value;
+});
+
+// Computed property pour la promotion disponible selon le contexte
+const promotionForEvaluation = computed(() => {
+  if (!selectedFormData.value || selectedFormData.value.associationType !== 'promotion') return null;
+  
+  // Retourner la promotion assignée spécifiquement au formulaire
+  if (selectedFormData.value.promotion) {
+    console.log('Utilisation de la promotion assignée au formulaire:', selectedFormData.value.promotion.name);
+    return selectedFormData.value.promotion;
+  }
+  
+  return null;
+});
+
 const hasValidTarget = computed(() => {
-  if (selectedFormData.value?.associationType === 'student') {
-    return !!currentEvaluation.value.student;
-  } else {
-    return currentEvaluation.value.groupNumber > 0;
+  if (!selectedFormData.value) return false;
+  
+  switch (selectedFormData.value.associationType) {
+    case 'student':
+      return !!currentEvaluation.value.student;
+    case 'group':
+      return !!currentEvaluation.value.group;
+    case 'subgroup':
+      return !!currentEvaluation.value.subgroup;
+    case 'promotion':
+      return !!selectedFormData.value.promotion; // Pour les promotions, la cible est déjà définie dans le formulaire
+    default:
+      return false;
   }
 });
 
@@ -759,25 +1034,65 @@ const totalCriteria = computed(() => {
 });
 
 const evaluationProgress = computed(() => {
-  const completed = Object.keys(currentEvaluation.value.scores).length;
+  const totalScores = Object.keys(currentEvaluation.value.scores).length;
+  const completedScores = Object.values(currentEvaluation.value.scores).filter(scoreData => {
+    // Un score est considéré comme complété si :
+    // - Pour 'common' : commonScore est défini
+    // - Pour 'individual' : au moins un individualScore existe
+    // - Pour 'mixed' : commonScore est défini OU au moins un individualScore existe
+    
+    if (scoreData.notationType === 'common') {
+      return scoreData.commonScore !== undefined && scoreData.commonScore !== null;
+    } else if (scoreData.notationType === 'individual') {
+      return scoreData.individualScores && scoreData.individualScores.length > 0;
+    } else if (scoreData.notationType === 'mixed') {
+      const hasCommon = scoreData.commonScore !== undefined && scoreData.commonScore !== null;
+      const hasIndividual = scoreData.individualScores && scoreData.individualScores.length > 0;
+      return hasCommon || hasIndividual;
+    }
+    
+    return false;
+  }).length;
+  
   const total = totalCriteria.value;
-  return total > 0 ? Math.round((completed / total) * 100) : 0;
+  return total > 0 ? Math.round((completedScores / total) * 100) : 0;
 });
 
 const canSaveEvaluation = computed(() => {
-  return evaluationFormValid.value && hasValidTarget.value && Object.keys(currentEvaluation.value.scores).length > 0;
+  const targetIsValid = hasValidTarget.value;
+  const hasScores = Object.keys(currentEvaluation.value.scores).length > 0;
+  const hasCompletedScores = Object.values(currentEvaluation.value.scores).some(scoreData => {
+    // Vérifier qu'il y a au moins un score valide selon le type de notation
+    if (scoreData.notationType === 'common') {
+      return scoreData.commonScore !== undefined && scoreData.commonScore !== null;
+    } else if (scoreData.notationType === 'individual') {
+      return scoreData.individualScores && scoreData.individualScores.length > 0 &&
+             scoreData.individualScores.some(is => is.score !== undefined && is.score !== null);
+    } else if (scoreData.notationType === 'mixed') {
+      const hasCommon = scoreData.commonScore !== undefined && scoreData.commonScore !== null;
+      const hasIndividual = scoreData.individualScores && scoreData.individualScores.length > 0 &&
+                           scoreData.individualScores.some(is => is.score !== undefined && is.score !== null);
+      return hasCommon || hasIndividual;
+    }
+    return false;
+  });
+  
+  return evaluationFormValid.value && targetIsValid && hasScores && hasCompletedScores;
 });
 
 // Chargement des données
 onMounted(async () => {
   await loadCurrentUser();
+  // Charger les étudiants en priorité pour les formulaires individuels
+  await loadStudents();
   await Promise.all([
     loadEvaluations(),
     loadValidForms(),
-    loadStudents(),
     loadPromotions(),
-    loadGroups()
+    loadGroups(),
+    loadSubgroups()
   ]);
+  console.log('Toutes les données chargées. Étudiants disponibles:', availableStudents.value.length);
 });
 
 // Méthodes utilitaires
@@ -831,9 +1146,23 @@ const getCompletedCriteria = (sectionIndex) => {
   const section = selectedFormData.value.sections[sectionIndex];
   if (!section) return 0;
   
-  return section.lines.filter(line => 
-    currentEvaluation.value.scores[line._id] !== undefined
-  ).length;
+  return section.lines.filter(line => {
+    const scoreData = currentEvaluation.value.scores[line._id];
+    if (!scoreData) return false;
+    
+    // Vérifier selon le type de notation
+    if (scoreData.notationType === 'common') {
+      return scoreData.commonScore !== undefined && scoreData.commonScore !== null;
+    } else if (scoreData.notationType === 'individual') {
+      return scoreData.individualScores && scoreData.individualScores.length > 0;
+    } else if (scoreData.notationType === 'mixed') {
+      const hasCommon = scoreData.commonScore !== undefined && scoreData.commonScore !== null;
+      const hasIndividual = scoreData.individualScores && scoreData.individualScores.length > 0;
+      return hasCommon || hasIndividual;
+    }
+    
+    return false;
+  }).length;
 };
 
 const getNotationTypeLabel = (type) => {
@@ -843,6 +1172,24 @@ const getNotationTypeLabel = (type) => {
     'mixed': 'Mixte'
   };
   return labels[type] || type;
+};
+
+// Fonction pour générer le message d'aide du select d'étudiant
+const getStudentSelectHint = () => {
+  if (!selectedFormData.value) return '';
+  
+  if (studentsForEvaluation.value.length === 0) {
+    return 'Aucun étudiant disponible pour ce formulaire';
+  }
+  
+  // Vérifier d'où viennent les étudiants
+  if (selectedFormData.value.students && selectedFormData.value.students.length > 0) {
+    return `${studentsForEvaluation.value.length} étudiant(s) assigné(s) spécifiquement à ce formulaire`;
+  } else if (currentEvaluation.value.targetStudents && currentEvaluation.value.targetStudents.length > 0) {
+    return `${studentsForEvaluation.value.length} étudiant(s) cible(s) chargé(s) pour ce formulaire`;
+  } else {
+    return `${studentsForEvaluation.value.length} étudiant(s) disponible(s) (tous les étudiants)`;
+  }
 };
 
 // Méthodes de chargement des données
@@ -864,6 +1211,36 @@ const loadCurrentUser = async () => {
     }
   } catch (error) {
     console.error('Erreur lors du chargement du profil utilisateur:', error);
+  }
+};
+
+const loadTargetStudentsForForm = async (formId) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/forms/${formId}/target-students`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      currentEvaluation.value.targetStudents = data.targetStudents || [];
+      console.log('Étudiants cibles chargés:', currentEvaluation.value.targetStudents);
+    } else {
+      console.log('Pas d\'étudiants cibles spécifiques, utilisation de tous les étudiants disponibles');
+      // Si l'API ne retourne pas d'étudiants cibles spécifiques, 
+      // on utilise tous les étudiants disponibles pour les formulaires individuels
+      if (selectedFormData.value?.associationType === 'student') {
+        currentEvaluation.value.targetStudents = availableStudents.value;
+      }
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des étudiants cibles:', error);
+    // En cas d'erreur, utiliser tous les étudiants pour les formulaires individuels
+    if (selectedFormData.value?.associationType === 'student') {
+      currentEvaluation.value.targetStudents = availableStudents.value;
+      console.log('Utilisation de tous les étudiants disponibles après erreur:', availableStudents.value.length);
+    }
   }
 };
 
@@ -929,6 +1306,7 @@ const loadValidForms = async () => {
 
 const loadStudents = async () => {
   try {
+    console.log('Chargement des étudiants...');
     const response = await fetch('http://localhost:5000/api/students', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -937,13 +1315,24 @@ const loadStudents = async () => {
     
     if (response.ok) {
       const data = await response.json();
-      availableStudents.value = (data.students || data || []).map(student => ({
+      const students = (data.students || data || []).map(student => ({
         ...student,
         fullName: `${student.firstName} ${student.lastName}`
       }));
+      availableStudents.value = students;
+      console.log('Étudiants chargés avec succès:', students.length);
+    } else {
+      console.error('Erreur lors du chargement des étudiants - Status:', response.status);
+      const errorData = await response.json();
+      console.error('Détails de l\'erreur:', errorData);
     }
   } catch (error) {
     console.error('Erreur lors du chargement des étudiants:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors du chargement des étudiants',
+      color: 'error'
+    };
   }
 };
 
@@ -984,6 +1373,23 @@ const loadGroups = async () => {
   }
 };
 
+const loadSubgroups = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/subgroups', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      availableSubgroups.value = data.subgroups || data || [];
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des sous-groupes:', error);
+  }
+};
+
 const handleTableOptions = (options) => {
   pagination.value.page = options.page;
   pagination.value.limit = options.itemsPerPage;
@@ -999,11 +1405,60 @@ const openNewEvaluationDialog = () => {
   selectFormDialog.value = true;
 };
 
-const selectForm = (form) => {
+const selectForm = async (form) => {
+  if (!form || !form._id) {
+    console.error('Formulaire invalide:', form);
+    return;
+  }
+  
+  console.log('Sélection du formulaire:', form.title, 'Type:', form.associationType);
+  console.log('Étudiants assignés au formulaire:', form.students?.length || 0);
+  console.log('Groupes assignés au formulaire:', form.groups?.length || 0);
+  console.log('Sous-groupes assignés au formulaire:', form.subgroups?.length || 0);
+  
   selectedFormData.value = form;
   resetCurrentEvaluation();
   currentEvaluation.value.form = form._id;
-  currentEvaluation.value.professor = currentUser.value?._id; // Assigner automatiquement le professeur connecté
+  currentEvaluation.value.professor = currentUser.value?._id;
+  currentEvaluation.value.evaluationType = form.associationType;
+  
+  // Charger les étudiants cibles pour ce formulaire (backup)
+  await loadTargetStudentsForForm(form._id);
+  
+  // Pour les formulaires individuels, s'assurer qu'on a des étudiants disponibles
+  if (form.associationType === 'student') {
+    // Si le formulaire n'a pas d'étudiants assignés ET qu'on n'a pas d'étudiants disponibles
+    if ((!form.students || form.students.length === 0) && availableStudents.value.length === 0) {
+      console.log('Rechargement des étudiants car aucun étudiant assigné et liste générale vide');
+      await loadStudents();
+    }
+    
+    // Pré-sélectionner le premier étudiant assigné si il n'y en a qu'un
+    if (form.students && form.students.length === 1) {
+      currentEvaluation.value.student = form.students[0]._id;
+      console.log('Pré-sélection de l\'étudiant unique:', form.students[0].firstName, form.students[0].lastName);
+    }
+  }
+  
+  // Initialiser la structure des scores selon le formulaire
+  if (form.sections && Array.isArray(form.sections)) {
+    form.sections.forEach(section => {
+      if (section && section.lines && Array.isArray(section.lines)) {
+        section.lines.forEach(line => {
+          if (line && line._id && line.notationType) {
+            initializeScoreStructure(line._id, line.notationType);
+          }
+        });
+      }
+    });
+  }
+  
+  console.log('Configuration terminée:');
+  console.log('- Étudiants du formulaire:', form.students?.length || 0);
+  console.log('- Étudiants disponibles généraux:', availableStudents.value.length);
+  console.log('- Étudiants cibles chargés:', currentEvaluation.value.targetStudents.length);
+  console.log('- Étudiant pré-sélectionné:', currentEvaluation.value.student || 'aucun');
+  
   selectFormDialog.value = false;
   evaluationDialog.value = true;
   expandedSections.value = form.sections?.map((_, index) => index) || [];
@@ -1019,8 +1474,127 @@ const resetCurrentEvaluation = () => {
     scores: {},
     promotion: null,
     group: null,
-    subgroup: null
+    subgroup: null,
+    evaluationType: null,
+    targetStudents: []
   };
+};
+
+// Méthodes pour gérer les scores selon la structure backend
+const initializeScoreStructure = (lineId, notationType) => {
+  if (!lineId || !notationType) return;
+  
+  if (!currentEvaluation.value.scores[lineId]) {
+    currentEvaluation.value.scores[lineId] = {
+      lineId,
+      notationType,
+      commonScore: notationType === 'individual' ? undefined : 0,
+      individualScores: notationType === 'common' ? [] : []
+    };
+  }
+};
+
+const getTargetStudents = () => {
+  // 1. Priorité aux étudiants assignés spécifiquement au formulaire
+  if (selectedFormData.value?.students && selectedFormData.value.students.length > 0) {
+    console.log('Utilisation des étudiants assignés au formulaire pour la notation:', selectedFormData.value.students.length);
+    return selectedFormData.value.students.filter(student => 
+      student && student._id && student.firstName && student.lastName
+    );
+  }
+  
+  // 2. Utiliser les targetStudents si disponibles (chargés via API)
+  if (currentEvaluation.value.targetStudents && currentEvaluation.value.targetStudents.length > 0) {
+    console.log('Utilisation des étudiants cibles pour la notation:', currentEvaluation.value.targetStudents.length);
+    return currentEvaluation.value.targetStudents.filter(student => 
+      student && student._id && student.firstName && student.lastName
+    );
+  }
+  
+  if (!selectedFormData.value) return [];
+  
+  const associationType = selectedFormData.value.associationType;
+  
+  if (associationType === 'student' && currentEvaluation.value.student) {
+    // Pour l'évaluation d'un étudiant individuel sélectionné
+    const student = availableStudents.value.find(s => s && s._id === currentEvaluation.value.student);
+    if (student && student._id && student.firstName && student.lastName) {
+      console.log('Utilisation de l\'étudiant sélectionné pour la notation:', student.fullName);
+      return [student];
+    }
+  } else if (associationType === 'promotion' && currentEvaluation.value.promotion) {
+    // Pour l'évaluation d'une promotion, récupérer les étudiants de la promotion
+    const promotionStudents = availableStudents.value.filter(s => 
+      s && s._id && s.firstName && s.lastName &&
+      s.promotions && s.promotions.some(p => p && p._id === currentEvaluation.value.promotion)
+    );
+    console.log('Utilisation des étudiants de la promotion pour la notation:', promotionStudents.length);
+    return promotionStudents;
+  }
+  
+  // Pour les groupes et sous-groupes, retourner un tableau vide par défaut
+  console.log('Aucun étudiant cible défini');
+  return [];
+};
+
+const getIndividualScore = (lineId, studentId) => {
+  if (!lineId || !studentId) return 0;
+  
+  const scoreData = currentEvaluation.value.scores[lineId];
+  if (!scoreData || !scoreData.individualScores) return 0;
+  
+  const individualScore = scoreData.individualScores.find(is => is && is.studentId === studentId);
+  return individualScore ? individualScore.score : 0;
+};
+
+const setIndividualScore = (lineId, studentId, score) => {
+  if (!lineId || !studentId) return;
+  
+  const scoreData = currentEvaluation.value.scores[lineId];
+  if (!scoreData) return;
+  
+  if (!scoreData.individualScores) {
+    scoreData.individualScores = [];
+  }
+  
+  const existingIndex = scoreData.individualScores.findIndex(is => is && is.studentId === studentId);
+  if (existingIndex >= 0) {
+    scoreData.individualScores[existingIndex].score = score;
+  } else {
+    scoreData.individualScores.push({ studentId, score });
+  }
+};
+
+const hasIndividualScore = (lineId, studentId) => {
+  if (!lineId || !studentId) return false;
+  
+  const scoreData = currentEvaluation.value.scores[lineId];
+  if (!scoreData || !scoreData.individualScores) return false;
+  
+  return scoreData.individualScores.some(is => is && is.studentId === studentId);
+};
+
+const toggleIndividualScore = (lineId, studentId, enabled) => {
+  if (!lineId || !studentId) return;
+  
+  const scoreData = currentEvaluation.value.scores[lineId];
+  if (!scoreData) return;
+  
+  if (!scoreData.individualScores) {
+    scoreData.individualScores = [];
+  }
+  
+  if (enabled) {
+    const exists = scoreData.individualScores.some(is => is && is.studentId === studentId);
+    if (!exists) {
+      scoreData.individualScores.push({ studentId, score: 0 });
+    }
+  } else {
+    const index = scoreData.individualScores.findIndex(is => is && is.studentId === studentId);
+    if (index >= 0) {
+      scoreData.individualScores.splice(index, 1);
+    }
+  }
 };
 
 const closeEvaluationDialog = () => {
@@ -1038,29 +1612,96 @@ const saveEvaluation = async () => {
 
   saving.value = true;
   try {
-    // Transformer les scores en format attendu par l'API
-    const scores = Object.entries(currentEvaluation.value.scores).map(([lineId, score]) => ({
-      lineId,
-      score: Number(score)
-    }));
+    // Debug - afficher les scores bruts avant transformation
+    console.log('Scores bruts:', JSON.stringify(currentEvaluation.value.scores, null, 2));
 
-    // Construire le payload selon le nouveau format de l'API
+    // Transformer les scores selon la structure exacte du modèle backend
+    const scores = [];
+    
+    Object.entries(currentEvaluation.value.scores).forEach(([lineId, scoreData]) => {
+      const scoreEntry = {
+        lineId,
+        notationType: scoreData.notationType
+      };
+      
+      // Pour la notation commune ou mixte avec score commun
+      if ((scoreData.notationType === 'common' || scoreData.notationType === 'mixed') && 
+          scoreData.commonScore !== undefined && scoreData.commonScore !== null) {
+        scoreEntry.commonScore = Number(scoreData.commonScore);
+      }
+      
+      // Pour la notation individuelle ou mixte avec scores individuels
+      if ((scoreData.notationType === 'individual' || scoreData.notationType === 'mixed') && 
+          scoreData.individualScores && scoreData.individualScores.length > 0) {
+        scoreEntry.individualScores = scoreData.individualScores
+          .filter(indScore => indScore.score !== undefined && indScore.score !== null)
+          .map(indScore => ({
+            studentId: indScore.studentId,
+            score: Number(indScore.score)
+          }));
+      }
+      
+      // Ajouter le score seulement s'il a du contenu
+      if (scoreEntry.commonScore !== undefined || 
+          (scoreEntry.individualScores && scoreEntry.individualScores.length > 0)) {
+        scores.push(scoreEntry);
+      }
+    });
+
+    // Debug - afficher les scores transformés avant envoi
+    console.log('Scores transformés:', JSON.stringify(scores, null, 2));
+
+    // Validation avant envoi : s'assurer qu'on a au moins un score valide
+    if (scores.length === 0) {
+      throw new Error('Aucun score valide à enregistrer. Veuillez saisir au moins un score.');
+    }
+    
+    // Vérifier que tous les scores ont des valeurs valides
+    for (const score of scores) {
+      if (score.commonScore !== undefined && (isNaN(score.commonScore) || score.commonScore < 0)) {
+        throw new Error(`Score commun invalide pour le critère ${score.lineId}`);
+      }
+      if (score.individualScores) {
+        for (const indScore of score.individualScores) {
+          if (isNaN(indScore.score) || indScore.score < 0) {
+            throw new Error(`Score individuel invalide pour l'étudiant ${indScore.studentId}`);
+          }
+        }
+      }
+    }
+
+    // Construire le payload selon le modèle backend Evaluation
     const evaluationData = {
       formId: currentEvaluation.value.form,
       professorId: currentEvaluation.value.professor,
-      studentId: currentEvaluation.value.student || undefined,
-      groupNumber: currentEvaluation.value.groupNumber || undefined,
       scores,
-      promotion: currentEvaluation.value.promotion || undefined,
-      group: currentEvaluation.value.group || undefined,
-      subgroup: currentEvaluation.value.subgroup || undefined
+      evaluationType: currentEvaluation.value.evaluationType // Requis par le modèle
     };
+
+    // Ajouter les champs selon le type d'évaluation
+    if (currentEvaluation.value.evaluationType === 'student') {
+      evaluationData.studentId = currentEvaluation.value.student;
+    } else if (currentEvaluation.value.evaluationType === 'group') {
+      // Pour les groupes, on peut envoyer soit groupNumber soit group, le backend se débrouillera
+      if (currentEvaluation.value.group) {
+        evaluationData.group = currentEvaluation.value.group;
+        evaluationData.groupNumber = 1; // Valeur par défaut
+      }
+    } else if (currentEvaluation.value.evaluationType === 'subgroup') {
+      evaluationData.subgroup = currentEvaluation.value.subgroup;
+    } else if (currentEvaluation.value.evaluationType === 'promotion') {
+      // Pour les promotions, l'information est dans le formulaire, mais on peut l'ajouter pour clarté
+      evaluationData.promotion = selectedFormData.value.promotion?._id || currentEvaluation.value.promotion;
+    }
 
     const url = currentEvaluation.value._id
       ? `http://localhost:5000/api/evaluations/update/${currentEvaluation.value._id}`
       : 'http://localhost:5000/api/evaluations/add';
 
     const method = currentEvaluation.value._id ? 'PUT' : 'POST';
+
+    // Debug - afficher le payload envoyé
+    console.log('Payload envoyé au backend:', JSON.stringify(evaluationData, null, 2));
 
     const response = await fetch(url, {
       method: method,
@@ -1110,10 +1751,15 @@ const viewEvaluation = async (item) => {
       const evaluation = await response.json();
       selectedFormData.value = evaluation.form;
       
-      // Convertir les scores en format pour l'édition (avec lineId comme clé)
+      // Convertir les scores en format pour l'édition selon la nouvelle structure
       const scores = {};
       (evaluation.scores || []).forEach(score => {
-        scores[score.lineId] = score.score;
+        scores[score.lineId] = {
+          lineId: score.lineId,
+          notationType: score.notationType,
+          commonScore: score.commonScore,
+          individualScores: score.individualScores || []
+        };
       });
       
       currentEvaluation.value = {
@@ -1125,7 +1771,9 @@ const viewEvaluation = async (item) => {
         scores,
         promotion: evaluation.promotion?._id || null,
         group: evaluation.group?._id || null,
-        subgroup: evaluation.subgroup?._id || null
+        subgroup: evaluation.subgroup?._id || null,
+        evaluationType: evaluation.evaluationType || evaluation.form.associationType,
+        targetStudents: evaluation.targetStudents || []
       };
       
       evaluationDialog.value = true;
