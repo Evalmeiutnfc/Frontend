@@ -155,6 +155,16 @@
                     <v-tooltip activator="parent" location="top">Voir les groupes</v-tooltip>
                   </v-btn>
                   <v-btn
+                    icon="mdi-account-group-plus"
+                    size="small"
+                    variant="text"
+                    color="success"
+                    @click="openAddGroupDialog(item)"
+                  >
+                    <v-icon size="small">mdi-plus-circle-outline</v-icon>
+                    <v-tooltip activator="parent" location="top">Ajouter un groupe</v-tooltip>
+                  </v-btn>
+                  <v-btn
                     icon="mdi-pencil"
                     size="small"
                     variant="text"
@@ -304,6 +314,85 @@
       </v-card>
     </v-dialog>
 
+    <!-- Dialog d'ajout de groupe à une promotion -->
+    <v-dialog v-model="addGroupDialog" max-width="600px">
+      <v-card class="rounded-lg">
+        <v-card-title class="pa-6 pb-4">
+          <div class="d-flex align-center">
+            <v-icon size="large" color="success" class="mr-3">
+              mdi-account-group-plus
+            </v-icon>
+            <div>
+              <h3 class="text-h5 font-weight-bold">
+                Ajouter un groupe à la promotion
+              </h3>
+              <p class="text-subtitle-1 text-medium-emphasis mb-0">
+                Promotion: {{ selectedPromotion?.name }}
+              </p>
+            </div>
+          </div>
+        </v-card-title>
+        
+        <v-divider></v-divider>
+        
+        <v-card-text class="pa-6">
+          <v-form ref="addGroupForm" v-model="addGroupFormValid" lazy-validation>
+            <v-autocomplete
+              v-model="selectedGroupToAdd"
+              :items="availableGroups"
+              :loading="loadingGroups"
+              label="Sélectionner un groupe"
+              variant="outlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-account-group"
+              item-title="name"
+              item-value="_id"
+              required
+              :rules="[v => !!v || 'Veuillez sélectionner un groupe']"
+              placeholder="Rechercher un groupe..."
+              no-data-text="Aucun groupe disponible"
+            >
+              <template v-slot:item="{ props, item }">
+                <v-list-item v-bind="props">
+                  <template v-slot:prepend>
+                    <v-icon color="primary">mdi-account-group</v-icon>
+                  </template>
+                  <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
+                  <v-list-item-subtitle>
+                    Année: {{ item.raw.year }} | {{ item.raw.subgroupsCount || 0 }} sous-groupe(s)
+                  </v-list-item-subtitle>
+                </v-list-item>
+              </template>
+            </v-autocomplete>
+          </v-form>
+        </v-card-text>
+        
+        <v-divider></v-divider>
+        
+        <v-card-actions class="pa-6">
+          <v-spacer></v-spacer>
+          <v-btn 
+            color="grey-darken-1" 
+            variant="text"
+            @click="addGroupDialog = false"
+            prepend-icon="mdi-close"
+          >
+            Annuler
+          </v-btn>
+          <v-btn 
+            color="success" 
+            variant="elevated"
+            @click="addGroupToPromotion" 
+            :disabled="!addGroupFormValid"
+            :loading="addingGroup"
+            prepend-icon="mdi-check"
+          >
+            Ajouter le groupe
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Dialog de confirmation de suppression -->
     <v-dialog v-model="deleteDialog" max-width="400px">
       <v-card>
@@ -384,6 +473,14 @@ const promotion = ref({
 const promotionGroups = ref([]);
 const selectedPromotion = ref(null);
 
+// Gestion de l'ajout de groupe à une promotion
+const addGroupDialog = ref(false);
+const addGroupFormValid = ref(false);
+const selectedGroupToAdd = ref(null);
+const availableGroups = ref([]);
+const loadingGroups = ref(false);
+const addingGroup = ref(false);
+
 // En-têtes du tableau
 const headers = ref([
   { title: 'Promotion', align: 'start', key: 'name' },
@@ -410,6 +507,7 @@ const snackbar = ref({
 
 // Références des formulaires
 const promotionForm = ref(null);
+const addGroupForm = ref(null);
 
 // Recherche débounced
 const debouncedSearch = debounce(() => {
@@ -611,6 +709,94 @@ const filterByYear = (type) => {
     selectedFilter.value = null;
   }
   debouncedSearch();
+};
+
+// Chargement des groupes disponibles pour une promotion
+const loadAvailableGroups = async () => {
+  loadingGroups.value = true;
+  try {
+    const response = await fetch('http://localhost:5000/api/groups', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Erreur lors du chargement des groupes');
+    }
+
+    const data = await response.json();
+    availableGroups.value = data.groups || data || [];
+  } catch (error) {
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors du chargement des groupes',
+      color: 'error'
+    };
+  } finally {
+    loadingGroups.value = false;
+  }
+};
+
+// Ouvrir le dialogue d'ajout de groupe
+const openAddGroupDialog = async (promotionItem) => {
+  selectedPromotion.value = promotionItem;
+  selectedGroupToAdd.value = null;
+  addGroupFormValid.value = false;
+  
+  // Charger les groupes disponibles
+  await loadAvailableGroups();
+  
+  addGroupDialog.value = true;
+};
+
+// Ajouter un groupe à une promotion
+const addGroupToPromotion = async () => {
+  // Valider le formulaire avant de sauvegarder
+  if (!addGroupForm.value) return;
+  
+  const { valid } = await addGroupForm.value.validate();
+  if (!valid) return;
+
+  if (!selectedPromotion.value || !selectedGroupToAdd.value) return;
+
+  addingGroup.value = true;
+  try {
+    const response = await fetch(`http://localhost:5000/api/promotions/${selectedPromotion.value._id}/add-group`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        groupId: selectedGroupToAdd.value
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Erreur lors de l\'ajout du groupe à la promotion');
+    }
+
+    snackbar.value = {
+      show: true,
+      text: 'Groupe ajouté avec succès à la promotion',
+      color: 'success'
+    };
+
+    addGroupDialog.value = false;
+    await loadPromotions();
+  } catch (error) {
+    console.error('Erreur:', error);
+    snackbar.value = {
+      show: true,
+      text: error.message || 'Erreur lors de l\'ajout du groupe à la promotion',
+      color: 'error'
+    };
+  } finally {
+    addingGroup.value = false;
+  }
 };
 
 // Initialisation

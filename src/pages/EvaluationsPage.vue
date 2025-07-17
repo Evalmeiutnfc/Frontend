@@ -828,7 +828,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 
 // État de la page
 const loading = ref(false);
@@ -1390,6 +1390,69 @@ const loadSubgroups = async () => {
   }
 };
 
+const loadStudentsByPromotion = async (promotionId) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/students/by-promotion/${promotionId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.students || [];
+    } else {
+      console.error('Erreur lors du chargement des étudiants par promotion:', response.status);
+      return [];
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des étudiants par promotion:', error);
+    return [];
+  }
+};
+
+const loadStudentsByGroup = async (groupId) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/students/by-group/${groupId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.students || [];
+    } else {
+      console.error('Erreur lors du chargement des étudiants par groupe:', response.status);
+      return [];
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des étudiants par groupe:', error);
+    return [];
+  }
+};
+
+const loadStudentsBySubgroup = async (subgroupId) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/students/by-subgroup/${subgroupId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.students || [];
+    } else {
+      console.error('Erreur lors du chargement des étudiants par sous-groupe:', response.status);
+      return [];
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des étudiants par sous-groupe:', error);
+    return [];
+  }
+};
+
 const handleTableOptions = (options) => {
   pagination.value.page = options.page;
   pagination.value.limit = options.itemsPerPage;
@@ -1427,19 +1490,44 @@ const selectForm = async (form) => {
   
   // Pour les formulaires individuels, s'assurer qu'on a des étudiants disponibles
   if (form.associationType === 'student') {
-    // Si le formulaire n'a pas d'étudiants assignés ET qu'on n'a pas d'étudiants disponibles
     if ((!form.students || form.students.length === 0) && availableStudents.value.length === 0) {
-      console.log('Rechargement des étudiants car aucun étudiant assigné et liste générale vide');
       await loadStudents();
     }
-    
-    // Pré-sélectionner le premier étudiant assigné si il n'y en a qu'un
     if (form.students && form.students.length === 1) {
       currentEvaluation.value.student = form.students[0]._id;
-      console.log('Pré-sélection de l\'étudiant unique:', form.students[0].firstName, form.students[0].lastName);
     }
   }
-  
+
+  // Pour les sous-groupes, charger les étudiants du sous-groupe sélectionné
+  if (form.associationType === 'subgroup' && form.subgroups && form.subgroups.length === 1) {
+    currentEvaluation.value.subgroup = form.subgroups[0];
+    const students = await loadStudentsBySubgroup(form.subgroups[0]);
+    currentEvaluation.value.targetStudents = students.map(student => ({
+      ...student,
+      fullName: `${student.firstName} ${student.lastName}`
+    }));
+  }
+
+  // Pour les groupes
+  if (form.associationType === 'group' && form.groups && form.groups.length === 1) {
+    currentEvaluation.value.group = form.groups[0];
+    const students = await loadStudentsByGroup(form.groups[0]);
+    currentEvaluation.value.targetStudents = students.map(student => ({
+      ...student,
+      fullName: `${student.firstName} ${student.lastName}`
+    }));
+  }
+
+  // Pour les promotions
+  if (form.associationType === 'promotion' && form.promotion) {
+    currentEvaluation.value.promotion = form.promotion._id;
+    const students = await loadStudentsByPromotion(form.promotion._id);
+    currentEvaluation.value.targetStudents = students.map(student => ({
+      ...student,
+      fullName: `${student.firstName} ${student.lastName}`
+    }));
+  }
+
   // Initialiser la structure des scores selon le formulaire
   if (form.sections && Array.isArray(form.sections)) {
     form.sections.forEach(section => {
@@ -1452,13 +1540,7 @@ const selectForm = async (form) => {
       }
     });
   }
-  
-  console.log('Configuration terminée:');
-  console.log('- Étudiants du formulaire:', form.students?.length || 0);
-  console.log('- Étudiants disponibles généraux:', availableStudents.value.length);
-  console.log('- Étudiants cibles chargés:', currentEvaluation.value.targetStudents.length);
-  console.log('- Étudiant pré-sélectionné:', currentEvaluation.value.student || 'aucun');
-  
+
   selectFormDialog.value = false;
   evaluationDialog.value = true;
   expandedSections.value = form.sections?.map((_, index) => index) || [];
@@ -1497,43 +1579,27 @@ const initializeScoreStructure = (lineId, notationType) => {
 const getTargetStudents = () => {
   // 1. Priorité aux étudiants assignés spécifiquement au formulaire
   if (selectedFormData.value?.students && selectedFormData.value.students.length > 0) {
-    console.log('Utilisation des étudiants assignés au formulaire pour la notation:', selectedFormData.value.students.length);
-    return selectedFormData.value.students.filter(student => 
-      student && student._id && student.firstName && student.lastName
-    );
+    return selectedFormData.value.students.filter(student => student && student._id && student.firstName && student.lastName);
   }
-  
-  // 2. Utiliser les targetStudents si disponibles (chargés via API)
+
+  // 2. Utiliser les targetStudents si déjà chargés (depuis les watchers ou le chargement initial)
   if (currentEvaluation.value.targetStudents && currentEvaluation.value.targetStudents.length > 0) {
-    console.log('Utilisation des étudiants cibles pour la notation:', currentEvaluation.value.targetStudents.length);
-    return currentEvaluation.value.targetStudents.filter(student => 
-      student && student._id && student.firstName && student.lastName
-    );
+    return currentEvaluation.value.targetStudents.filter(student => student && student._id && student.firstName && student.lastName);
   }
-  
+
   if (!selectedFormData.value) return [];
-  
+
   const associationType = selectedFormData.value.associationType;
-  
+
+  // Pour l'évaluation d'un étudiant individuel sélectionné
   if (associationType === 'student' && currentEvaluation.value.student) {
-    // Pour l'évaluation d'un étudiant individuel sélectionné
     const student = availableStudents.value.find(s => s && s._id === currentEvaluation.value.student);
     if (student && student._id && student.firstName && student.lastName) {
-      console.log('Utilisation de l\'étudiant sélectionné pour la notation:', student.fullName);
       return [student];
     }
-  } else if (associationType === 'promotion' && currentEvaluation.value.promotion) {
-    // Pour l'évaluation d'une promotion, récupérer les étudiants de la promotion
-    const promotionStudents = availableStudents.value.filter(s => 
-      s && s._id && s.firstName && s.lastName &&
-      s.promotions && s.promotions.some(p => p && p._id === currentEvaluation.value.promotion)
-    );
-    console.log('Utilisation des étudiants de la promotion pour la notation:', promotionStudents.length);
-    return promotionStudents;
   }
-  
-  // Pour les groupes et sous-groupes, retourner un tableau vide par défaut
-  console.log('Aucun étudiant cible défini');
+
+  // Pour les autres types (group, subgroup, promotion), les étudiants sont chargés via les watchers
   return [];
 };
 
@@ -1878,6 +1944,45 @@ const deleteEvaluation = async () => {
   }
 };
 
+// Ajouter les watchers pour charger dynamiquement les étudiants
+// Watcher pour charger les étudiants quand le sous-groupe change
+watch(() => currentEvaluation.value.subgroup, async (newSubgroupId) => {
+  if (newSubgroupId && selectedFormData.value?.associationType === 'subgroup') {
+    console.log('Chargement des étudiants du sous-groupe:', newSubgroupId);
+    const students = await loadStudentsBySubgroup(newSubgroupId);
+    currentEvaluation.value.targetStudents = students.map(student => ({
+      ...student,
+      fullName: `${student.firstName} ${student.lastName}`
+    }));
+    console.log('Étudiants du sous-groupe chargés:', students.length);
+  }
+});
+
+// Watcher pour charger les étudiants quand le groupe change
+watch(() => currentEvaluation.value.group, async (newGroupId) => {
+  if (newGroupId && selectedFormData.value?.associationType === 'group') {
+    console.log('Chargement des étudiants du groupe:', newGroupId);
+    const students = await loadStudentsByGroup(newGroupId);
+    currentEvaluation.value.targetStudents = students.map(student => ({
+      ...student,
+      fullName: `${student.firstName} ${student.lastName}`
+    }));
+    console.log('Étudiants du groupe chargés:', students.length);
+  }
+});
+
+// Watcher pour charger les étudiants quand la promotion change
+watch(() => currentEvaluation.value.promotion, async (newPromotionId) => {
+  if (newPromotionId && selectedFormData.value?.associationType === 'promotion') {
+    console.log('Chargement des étudiants de la promotion:', newPromotionId);
+    const students = await loadStudentsByPromotion(newPromotionId);
+    currentEvaluation.value.targetStudents = students.map(student => ({
+      ...student,
+      fullName: `${student.firstName} ${student.lastName}`
+    }));
+    console.log('Étudiants de la promotion chargés:', students.length);
+  }
+});
 
 </script>
 
