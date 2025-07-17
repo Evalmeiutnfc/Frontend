@@ -581,18 +581,43 @@
                             
                             <!-- Notation individuelle -->
                             <div v-else-if="line.notationType === 'individual'">
-                              <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-2">
-                                <div class="text-caption mb-1">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
-                                <v-radio-group
-                                  :model-value="getIndividualScore(line._id, student?._id)"
-                                  @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
-                                  inline
-                                  hide-details
-                                >
-                                  <v-radio label="Non" :value="0" color="error" />
-                                  <v-radio label="Oui" :value="1" color="success" />
-                                </v-radio-group>
+                              <div class="mb-2">
+                                <v-chip size="small" color="info" variant="outlined">
+                                  <v-icon size="small" class="mr-1">mdi-account-multiple</v-icon>
+                                  {{ getTargetStudents().length }} étudiant(s) à noter
+                                </v-chip>
                               </div>
+                              
+                              <div v-if="getTargetStudents().length > 0">
+                                <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-3 pa-3 border rounded">
+                                  <div class="d-flex align-center mb-2">
+                                    <v-avatar size="32" color="primary" class="mr-2">
+                                      <span class="text-white text-caption">{{ student?.firstName?.charAt(0) }}{{ student?.lastName?.charAt(0) }}</span>
+                                    </v-avatar>
+                                    <div>
+                                      <div class="font-weight-medium">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
+                                      <div class="text-caption text-medium-emphasis">{{ student?.studentNumber || 'N° étudiant' }}</div>
+                                    </div>
+                                  </div>
+                                  
+                                  <v-radio-group
+                                    :model-value="getIndividualScore(line._id, student?._id)"
+                                    @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
+                                    inline
+                                    hide-details
+                                  >
+                                    <v-radio label="Non" :value="0" color="error" />
+                                    <v-radio label="Oui" :value="1" color="success" />
+                                  </v-radio-group>
+                                </div>
+                              </div>
+                              <v-alert v-else type="info" variant="tonal" density="compact">
+                                <v-icon class="mr-2">mdi-information</v-icon>
+                                Aucun étudiant à noter individuellement. 
+                                <span v-if="selectedFormData.associationType !== 'student'">
+                                  Veuillez d'abord sélectionner un {{ selectedFormData.associationType === 'group' ? 'groupe' : selectedFormData.associationType === 'subgroup' ? 'sous-groupe' : 'promotion' }}.
+                                </span>
+                              </v-alert>
                             </div>
                             
                             <!-- Notation mixte -->
@@ -612,20 +637,35 @@
                               <v-divider class="my-2" />
                               
                               <div>
-                                <div class="text-caption mb-2">Scores individuels (optionnel)</div>
-                                <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-2">
-                                  <div class="text-caption mb-1">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
-                                  <v-radio-group
-                                    :model-value="getIndividualScore(line._id, student?._id)"
-                                    @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
-                                    inline
-                                    hide-details
-                                  >
-                                    <v-radio label="Non défini" :value="null" />
-                                    <v-radio label="Non" :value="0" color="error" />
-                                    <v-radio label="Oui" :value="1" color="success" />
-                                  </v-radio-group>
+                                <div class="text-caption mb-2 d-flex align-center">
+                                  <v-icon size="small" class="mr-1">mdi-account-multiple</v-icon>
+                                  Scores individuels (optionnel) - {{ getTargetStudents().length }} étudiant(s)
                                 </div>
+                                
+                                <div v-if="getTargetStudents().length > 0">
+                                  <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-3 pa-2 border rounded">
+                                    <div class="d-flex align-center mb-2">
+                                      <v-avatar size="24" color="secondary" class="mr-2">
+                                        <span class="text-white text-caption">{{ student?.firstName?.charAt(0) }}{{ student?.lastName?.charAt(0) }}</span>
+                                      </v-avatar>
+                                      <span class="text-body-2 font-weight-medium">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</span>
+                                    </div>
+                                    <v-radio-group
+                                      :model-value="getIndividualScore(line._id, student?._id)"
+                                      @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
+                                      inline
+                                      hide-details
+                                    >
+                                      <v-radio label="Non défini" :value="null" />
+                                      <v-radio label="Non" :value="0" color="error" />
+                                      <v-radio label="Oui" :value="1" color="success" />
+                                    </v-radio-group>
+                                  </div>
+                                </div>
+                                <v-alert v-else type="info" variant="tonal" density="compact">
+                                  <v-icon class="mr-2">mdi-information</v-icon>
+                                  Aucun étudiant disponible pour notation individuelle.
+                                </v-alert>
                               </div>
                             </div>
                           </div>
@@ -657,24 +697,54 @@
                             
                             <!-- Notation individuelle -->
                             <div v-else-if="line.notationType === 'individual'">
-                              <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-4">
-                                <div class="text-caption mb-2">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
-                                <v-slider
-                                  :model-value="getIndividualScore(line._id, student?._id)"
-                                  @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
-                                  :min="0"
-                                  :max="line.maxScore"
-                                  :step="1"
-                                  show-ticks="always"
-                                  tick-size="4"
-                                  thumb-label
-                                  color="primary"
-                                >
-                                  <template v-slot:thumb-label="{ modelValue }">
-                                    {{ modelValue }}/{{ line.maxScore }}
-                                  </template>
-                                </v-slider>
+                              <div class="mb-2">
+                                <v-chip size="small" color="info" variant="outlined">
+                                  <v-icon size="small" class="mr-1">mdi-account-multiple</v-icon>
+                                  {{ getTargetStudents().length }} étudiant(s) à noter
+                                </v-chip>
                               </div>
+                              
+                              <div v-if="getTargetStudents().length > 0">
+                                <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-4 pa-3 border rounded">
+                                  <div class="d-flex align-center mb-3">
+                                    <v-avatar size="32" color="primary" class="mr-2">
+                                      <span class="text-white text-caption">{{ student?.firstName?.charAt(0) }}{{ student?.lastName?.charAt(0) }}</span>
+                                    </v-avatar>
+                                    <div>
+                                      <div class="font-weight-medium">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
+                                      <div class="text-caption text-medium-emphasis">{{ student?.studentNumber || 'N° étudiant' }}</div>
+                                    </div>
+                                  </div>
+                                  
+                                  <v-slider
+                                    :model-value="getIndividualScore(line._id, student?._id)"
+                                    @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
+                                    :min="0"
+                                    :max="line.maxScore"
+                                    :step="1"
+                                    show-ticks="always"
+                                    tick-size="4"
+                                    thumb-label
+                                    color="primary"
+                                  >
+                                    <template v-slot:thumb-label="{ modelValue }">
+                                      {{ modelValue }}/{{ line.maxScore }}
+                                    </template>
+                                  </v-slider>
+                                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+                                    <span>0 - Insuffisant</span>
+                                    <span>{{ Math.floor(line.maxScore / 2) }} - Satisfaisant</span>
+                                    <span>{{ line.maxScore }} - Excellent</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <v-alert v-else type="info" variant="tonal" density="compact">
+                                <v-icon class="mr-2">mdi-information</v-icon>
+                                Aucun étudiant à noter individuellement.
+                                <span v-if="selectedFormData.associationType !== 'student'">
+                                  Veuillez d'abord sélectionner un {{ selectedFormData.associationType === 'group' ? 'groupe' : selectedFormData.associationType === 'subgroup' ? 'sous-groupe' : 'promotion' }}.
+                                </span>
+                              </v-alert>
                             </div>
                             
                             <!-- Notation mixte -->
@@ -700,34 +770,49 @@
                               <v-divider class="my-3" />
                               
                               <div>
-                                <div class="text-caption mb-2">Scores individuels (optionnel)</div>
-                                <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-3">
-                                  <div class="text-caption mb-1">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</div>
-                                  <v-checkbox
-                                    :model-value="hasIndividualScore(line._id, student?._id)"
-                                    @update:model-value="(enabled) => toggleIndividualScore(line._id, student?._id, enabled)"
-                                    label="Score individuel spécifique"
-                                    density="compact"
-                                    hide-details
-                                    class="mb-2"
-                                  />
-                                  <v-slider
-                                    v-if="hasIndividualScore(line._id, student?._id)"
-                                    :model-value="getIndividualScore(line._id, student?._id)"
-                                    @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
-                                    :min="0"
-                                    :max="line.maxScore"
-                                    :step="1"
-                                    show-ticks="always"
-                                    tick-size="4"
-                                    thumb-label
-                                    color="primary"
-                                  >
-                                    <template v-slot:thumb-label="{ modelValue }">
-                                      {{ modelValue }}/{{ line.maxScore }}
-                                    </template>
-                                  </v-slider>
+                                <div class="text-caption mb-2 d-flex align-center">
+                                  <v-icon size="small" class="mr-1">mdi-account-multiple</v-icon>
+                                  Scores individuels (optionnel) - {{ getTargetStudents().length }} étudiant(s)
                                 </div>
+                                
+                                <div v-if="getTargetStudents().length > 0">
+                                  <div v-for="student in getTargetStudents()" :key="student?._id || `student-${student?.firstName}-${student?.lastName}`" class="mb-4 pa-3 border rounded">
+                                    <div class="d-flex align-center mb-2">
+                                      <v-avatar size="24" color="secondary" class="mr-2">
+                                        <span class="text-white text-caption">{{ student?.firstName?.charAt(0) }}{{ student?.lastName?.charAt(0) }}</span>
+                                      </v-avatar>
+                                      <span class="text-body-2 font-weight-medium">{{ student?.firstName || 'Prénom' }} {{ student?.lastName || 'Nom' }}</span>
+                                    </div>
+                                    <v-checkbox
+                                      :model-value="hasIndividualScore(line._id, student?._id)"
+                                      @update:model-value="(enabled) => toggleIndividualScore(line._id, student?._id, enabled)"
+                                      label="Score individuel spécifique"
+                                      density="compact"
+                                      hide-details
+                                      class="mb-2"
+                                    />
+                                    <v-slider
+                                      v-if="hasIndividualScore(line._id, student?._id)"
+                                      :model-value="getIndividualScore(line._id, student?._id)"
+                                      @update:model-value="(value) => setIndividualScore(line._id, student?._id, value)"
+                                      :min="0"
+                                      :max="line.maxScore"
+                                      :step="1"
+                                      show-ticks="always"
+                                      tick-size="4"
+                                      thumb-label
+                                      color="primary"
+                                    >
+                                      <template v-slot:thumb-label="{ modelValue }">
+                                        {{ modelValue }}/{{ line.maxScore }}
+                                      </template>
+                                    </v-slider>
+                                  </div>
+                                </div>
+                                <v-alert v-else type="info" variant="tonal" density="compact">
+                                  <v-icon class="mr-2">mdi-information</v-icon>
+                                  Aucun étudiant disponible pour notation individuelle.
+                                </v-alert>
                               </div>
                             </div>
                           </div>
@@ -1104,6 +1189,106 @@ const formatDate = (dateString) => {
     month: 'short',
     day: 'numeric'
   });
+};
+
+// Fonction pour récupérer les étudiants cibles selon le contexte d'évaluation
+const getTargetStudents = () => {
+  if (!selectedFormData.value) return [];
+  
+  // 1. Priorité aux étudiants assignés spécifiquement au formulaire
+  if (selectedFormData.value.students && selectedFormData.value.students.length > 0) {
+    return selectedFormData.value.students.filter(student => student && student._id && student.firstName && student.lastName);
+  }
+
+  // 2. Utiliser les targetStudents si déjà chargés (depuis les watchers ou le chargement initial)
+  if (currentEvaluation.value.targetStudents && currentEvaluation.value.targetStudents.length > 0) {
+    return currentEvaluation.value.targetStudents.filter(student => student && student._id && student.firstName && student.lastName);
+  }
+
+  const associationType = selectedFormData.value.associationType;
+
+  // 3. Pour l'évaluation d'un étudiant individuel sélectionné
+  if (associationType === 'student' && currentEvaluation.value.student) {
+    const student = availableStudents.value.find(s => s && s._id === currentEvaluation.value.student);
+    if (student && student._id && student.firstName && student.lastName) {
+      return [student];
+    }
+  }
+  
+  // 4. Pour les évaluations individuelles, retourner tous les étudiants disponibles
+  if (associationType === 'student') {
+    return studentsForEvaluation.value;
+  }
+  
+  // 5. Pour les évaluations de groupe
+  if (associationType === 'group' && currentEvaluation.value.group) {
+    const selectedGroup = availableGroups.value.find(g => g._id === currentEvaluation.value.group);
+    return selectedGroup?.students || [];
+  }
+  
+  // 6. Pour les évaluations de sous-groupe
+  if (associationType === 'subgroup' && currentEvaluation.value.subgroup) {
+    const selectedSubgroup = availableSubgroups.value.find(sg => sg._id === currentEvaluation.value.subgroup);
+    return selectedSubgroup?.students || [];
+  }
+  
+  // 7. Pour les évaluations de promotion
+  if (associationType === 'promotion' && selectedFormData.value.promotion) {
+    return selectedFormData.value.promotion.students || [];
+  }
+
+  return [];
+};
+
+// Fonctions pour gérer les scores individuels
+const getIndividualScore = (criteriaId, studentId) => {
+  const scoreData = currentEvaluation.value.scores[criteriaId];
+  if (!scoreData || !scoreData.individualScores) return 0;
+  
+  const studentScore = scoreData.individualScores.find(score => score.studentId === studentId);
+  return studentScore ? studentScore.score : 0;
+};
+
+const setIndividualScore = (criteriaId, studentId, score) => {
+  if (!currentEvaluation.value.scores[criteriaId]) {
+    currentEvaluation.value.scores[criteriaId] = {
+      notationType: 'individual',
+      individualScores: []
+    };
+  }
+  
+  const scoreData = currentEvaluation.value.scores[criteriaId];
+  if (!scoreData.individualScores) {
+    scoreData.individualScores = [];
+  }
+  
+  const existingScoreIndex = scoreData.individualScores.findIndex(s => s.studentId === studentId);
+  if (existingScoreIndex >= 0) {
+    scoreData.individualScores[existingScoreIndex].score = score;
+  } else {
+    scoreData.individualScores.push({
+      studentId: studentId,
+      score: score
+    });
+  }
+};
+
+const hasIndividualScore = (criteriaId, studentId) => {
+  const scoreData = currentEvaluation.value.scores[criteriaId];
+  if (!scoreData || !scoreData.individualScores) return false;
+  
+  return scoreData.individualScores.some(score => score.studentId === studentId);
+};
+
+const toggleIndividualScore = (criteriaId, studentId, enabled) => {
+  if (enabled) {
+    setIndividualScore(criteriaId, studentId, 0);
+  } else {
+    const scoreData = currentEvaluation.value.scores[criteriaId];
+    if (scoreData && scoreData.individualScores) {
+      scoreData.individualScores = scoreData.individualScores.filter(s => s.studentId !== studentId);
+    }
+  }
 };
 
 const getFormStatus = (form) => {
@@ -1573,93 +1758,6 @@ const initializeScoreStructure = (lineId, notationType) => {
       commonScore: notationType === 'individual' ? undefined : 0,
       individualScores: notationType === 'common' ? [] : []
     };
-  }
-};
-
-const getTargetStudents = () => {
-  // 1. Priorité aux étudiants assignés spécifiquement au formulaire
-  if (selectedFormData.value?.students && selectedFormData.value.students.length > 0) {
-    return selectedFormData.value.students.filter(student => student && student._id && student.firstName && student.lastName);
-  }
-
-  // 2. Utiliser les targetStudents si déjà chargés (depuis les watchers ou le chargement initial)
-  if (currentEvaluation.value.targetStudents && currentEvaluation.value.targetStudents.length > 0) {
-    return currentEvaluation.value.targetStudents.filter(student => student && student._id && student.firstName && student.lastName);
-  }
-
-  if (!selectedFormData.value) return [];
-
-  const associationType = selectedFormData.value.associationType;
-
-  // Pour l'évaluation d'un étudiant individuel sélectionné
-  if (associationType === 'student' && currentEvaluation.value.student) {
-    const student = availableStudents.value.find(s => s && s._id === currentEvaluation.value.student);
-    if (student && student._id && student.firstName && student.lastName) {
-      return [student];
-    }
-  }
-
-  // Pour les autres types (group, subgroup, promotion), les étudiants sont chargés via les watchers
-  return [];
-};
-
-const getIndividualScore = (lineId, studentId) => {
-  if (!lineId || !studentId) return 0;
-  
-  const scoreData = currentEvaluation.value.scores[lineId];
-  if (!scoreData || !scoreData.individualScores) return 0;
-  
-  const individualScore = scoreData.individualScores.find(is => is && is.studentId === studentId);
-  return individualScore ? individualScore.score : 0;
-};
-
-const setIndividualScore = (lineId, studentId, score) => {
-  if (!lineId || !studentId) return;
-  
-  const scoreData = currentEvaluation.value.scores[lineId];
-  if (!scoreData) return;
-  
-  if (!scoreData.individualScores) {
-    scoreData.individualScores = [];
-  }
-  
-  const existingIndex = scoreData.individualScores.findIndex(is => is && is.studentId === studentId);
-  if (existingIndex >= 0) {
-    scoreData.individualScores[existingIndex].score = score;
-  } else {
-    scoreData.individualScores.push({ studentId, score });
-  }
-};
-
-const hasIndividualScore = (lineId, studentId) => {
-  if (!lineId || !studentId) return false;
-  
-  const scoreData = currentEvaluation.value.scores[lineId];
-  if (!scoreData || !scoreData.individualScores) return false;
-  
-  return scoreData.individualScores.some(is => is && is.studentId === studentId);
-};
-
-const toggleIndividualScore = (lineId, studentId, enabled) => {
-  if (!lineId || !studentId) return;
-  
-  const scoreData = currentEvaluation.value.scores[lineId];
-  if (!scoreData) return;
-  
-  if (!scoreData.individualScores) {
-    scoreData.individualScores = [];
-  }
-  
-  if (enabled) {
-    const exists = scoreData.individualScores.some(is => is && is.studentId === studentId);
-    if (!exists) {
-      scoreData.individualScores.push({ studentId, score: 0 });
-    }
-  } else {
-    const index = scoreData.individualScores.findIndex(is => is && is.studentId === studentId);
-    if (index >= 0) {
-      scoreData.individualScores.splice(index, 1);
-    }
   }
 };
 
