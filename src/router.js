@@ -10,6 +10,7 @@ import SubGroupsPage from './pages/SubGroupsPage.vue'
 import FormsPage from './pages/FormsPage.vue'
 import EvaluationsPage from './pages/EvaluationsPage.vue'
 import ExportPage from './pages/ExportPage.vue'
+import ProfilePage from './pages/ProfilePage.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -22,7 +23,8 @@ const routes = [
   { path: '/subgroups', component: SubGroupsPage },
   { path: '/forms', component: FormsPage },
   { path: '/evaluations', component: EvaluationsPage },
-  { path: '/export', component: ExportPage }
+  { path: '/export', component: ExportPage },
+  { path: '/profile', component: ProfilePage }
 ]
 
 const router = createRouter({

@@ -26,9 +26,16 @@
         </template>
         <v-list>
           <v-list-item @click="viewProfile">
+            <template v-slot:prepend>
+              <v-icon>mdi-account-circle</v-icon>
+            </template>
             <v-list-item-title>Mon profil</v-list-item-title>
           </v-list-item>
+          <v-divider />
           <v-list-item @click="logout">
+            <template v-slot:prepend>
+              <v-icon>mdi-logout</v-icon>
+            </template>
             <v-list-item-title>Déconnexion</v-list-item-title>
           </v-list-item>
         </v-list>
