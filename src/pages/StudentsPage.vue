@@ -300,7 +300,7 @@
                   density="comfortable"
                   prepend-inner-icon="mdi-account"
                   required
-                  :rules="[v => !!v || 'Le prénom est requis']"
+                  :rules="[rules.required]"
                 ></v-text-field>
               </v-col>
               
@@ -312,7 +312,7 @@
                   density="comfortable"
                   prepend-inner-icon="mdi-account"
                   required
-                  :rules="[v => !!v || 'Le nom est requis']"
+                  :rules="[rules.required]"
                 ></v-text-field>
               </v-col>
               
@@ -324,7 +324,9 @@
                   density="comfortable"
                   prepend-inner-icon="mdi-card-account-details"
                   required
-                  :rules="[v => !!v || 'Le numéro étudiant est requis']"
+                  :rules="[rules.required, rules.studentNumberFormat]"
+                  counter="8"
+                  maxlength="8"
                 ></v-text-field>
               </v-col>
               
@@ -337,7 +339,7 @@
                   density="comfortable"
                   prepend-inner-icon="mdi-calendar"
                   required
-                  :rules="[v => !!v || 'L\'année est requise']"
+                  :rules="[rules.required]"
                 ></v-select>
               </v-col>
 
@@ -667,6 +669,11 @@ const promotionOptions = ref([]);
 const groupOptions = ref([]);
 
 // Modèle étudiant avec multi-appartenance
+const rules = {
+  required: v => !!v || 'Ce champ est requis',
+  studentNumberFormat: v => /^\d{8}$/.test(v) || 'Le numéro doit contenir exactement 8 chiffres',
+};
+
 const student = ref({
   firstName: '',
   lastName: '',

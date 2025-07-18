@@ -1492,7 +1492,7 @@ const loadValidForms = async () => {
 const loadStudents = async () => {
   try {
     console.log('Chargement des étudiants...');
-    const response = await fetch('http://localhost:5000/api/students', {
+    const response = await fetch('http://localhost:5000/api/students/list', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
