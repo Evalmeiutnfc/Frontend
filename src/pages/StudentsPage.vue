@@ -1,6 +1,6 @@
 <template>
   <v-container fluid class="pa-4">
-    <!-- En-tête amélioré -->
+    <!-- En-tête -->
     <v-row class="mb-6">
       <v-col cols="12">
         <div class="d-flex align-center justify-space-between">
@@ -1135,12 +1135,7 @@ const openAddStudentDialog = () => {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1) !important;
 }
 
-.text-h4 {
-  background: linear-gradient(135deg, var(--v-theme-primary), var(--v-theme-secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+
 
 .fade-enter-active,
 .fade-leave-active {

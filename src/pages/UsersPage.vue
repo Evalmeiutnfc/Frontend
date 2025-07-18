@@ -1134,12 +1134,7 @@ const deleteUser = async () => {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1) !important;
 }
 
-.text-h4 {
-  background: linear-gradient(135deg, var(--v-theme-primary), var(--v-theme-secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+
 
 /* Personnalisation du theme sombre */
 .v-theme--dark .v-card {
