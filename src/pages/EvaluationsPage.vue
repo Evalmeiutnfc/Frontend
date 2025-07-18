@@ -22,6 +22,8 @@
               prepend-icon="mdi-download"
               @click="exportAllEvaluations"
               :disabled="filteredEvaluations.length === 0"
+              size="large"
+              class="mr-4"
             >
               Exporter tout
             </v-btn>

@@ -63,6 +63,8 @@ onMounted(() => {
 .v-main {
   min-height: 100vh;
   background: var(--background-color);
+  overflow-y: auto;
+  max-height: 100vh;
 }
 
 .public-page-main {
@@ -71,5 +73,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
 }
 </style>

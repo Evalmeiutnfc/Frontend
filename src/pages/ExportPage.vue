@@ -94,25 +94,37 @@
                   class="mb-4"
                 />
 
-                <div class="d-flex gap-2">
-                  <v-text-field
-                    v-model="exportConfig.dateFrom"
-                    type="date"
-                    label="Date de début"
-                    variant="outlined"
-                    density="comfortable"
-                    prepend-inner-icon="mdi-calendar"
-                    hide-details
-                  />
-                  <v-text-field
-                    v-model="exportConfig.dateTo"
-                    type="date"
-                    label="Date de fin"
-                    variant="outlined"
-                    density="comfortable"
-                    prepend-inner-icon="mdi-calendar"
-                    hide-details
-                  />
+                <div class="mb-4">
+                  <h5 class="text-body-1 font-weight-medium mb-3">Période d'évaluation</h5>
+                  <v-row dense>
+                    <v-col cols="12" sm="6">
+                      <v-text-field
+                        v-model="exportConfig.dateFrom"
+                        type="date"
+                        label="Date de début"
+                        variant="outlined"
+                        density="comfortable"
+                        prepend-inner-icon="mdi-calendar-start"
+                        hide-details="auto"
+                        clearable
+                      />
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                      <v-text-field
+                        v-model="exportConfig.dateTo"
+                        type="date"
+                        label="Date de fin"
+                        variant="outlined"
+                        density="comfortable"
+                        prepend-inner-icon="mdi-calendar-end"
+                        hide-details="auto"
+                        clearable
+                      />
+                    </v-col>
+                  </v-row>
+                  <div class="text-caption text-medium-emphasis mt-1">
+                    Laissez vide pour inclure toutes les périodes
+                  </div>
                 </div>
               </div>
 
