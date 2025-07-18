@@ -11,6 +11,7 @@ import FormsPage from './pages/FormsPage.vue'
 import EvaluationsPage from './pages/EvaluationsPage.vue'
 import ExportPage from './pages/ExportPage.vue'
 import ProfilePage from './pages/ProfilePage.vue'
+import UsersPage from './pages/UsersPage.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -24,7 +25,8 @@ const routes = [
   { path: '/forms', component: FormsPage },
   { path: '/evaluations', component: EvaluationsPage },
   { path: '/export', component: ExportPage },
-  { path: '/profile', component: ProfilePage }
+  { path: '/profile', component: ProfilePage },
+  { path: '/users', component: UsersPage }
 ]
 
 const router = createRouter({

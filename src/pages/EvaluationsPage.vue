@@ -131,44 +131,102 @@
 
               <!-- Cible de l'évaluation -->
               <template v-slot:item.target="{ item }">
-                <div v-if="item.student">
+                <!-- Évaluation individuelle d'un étudiant -->
+                <div v-if="item.student" class="d-flex flex-column">
                   <v-chip
                     color="green"
                     size="small"
                     variant="flat"
                     prepend-icon="mdi-account"
-                    class="font-weight-medium"
+                    class="font-weight-medium mb-1"
                   >
                     {{ item.student.firstName }} {{ item.student.lastName }}
                   </v-chip>
-                  <div class="text-caption text-medium-emphasis mt-1">
+                  <div class="text-caption text-medium-emphasis">
+                    <v-icon size="small" class="mr-1">mdi-card-account-details</v-icon>
                     N° {{ item.student.studentNumber }}
                   </div>
                 </div>
-                <div v-else>
+                
+                <!-- Évaluation de groupe -->
+                <div v-else-if="item.group" class="d-flex flex-column">
                   <v-chip
                     color="blue"
                     size="small"
                     variant="flat"
                     prepend-icon="mdi-account-group"
-                    class="font-weight-medium"
+                    class="font-weight-medium mb-1"
+                  >
+                    {{ item.group.name }}
+                  </v-chip>
+                  <div class="text-caption text-medium-emphasis">
+                    <v-icon size="small" class="mr-1">mdi-account-multiple</v-icon>
+                    {{ item.group.students?.length || 0 }} étudiant(s)
+                  </div>
+                </div>
+                
+                <!-- Évaluation de sous-groupe -->
+                <div v-else-if="item.subgroup" class="d-flex flex-column">
+                  <v-chip
+                    color="purple"
+                    size="small"
+                    variant="flat"
+                    prepend-icon="mdi-account-multiple-outline"
+                    class="font-weight-medium mb-1"
+                  >
+                    {{ item.subgroup.name }}
+                  </v-chip>
+                  <div class="text-caption text-medium-emphasis">
+                    <v-icon size="small" class="mr-1">mdi-account-supervisor</v-icon>
+                    Sous-groupe
+                  </div>
+                </div>
+                
+                <!-- Évaluation de promotion -->
+                <div v-else-if="item.promotion" class="d-flex flex-column">
+                  <v-chip
+                    color="orange"
+                    size="small"
+                    variant="flat"
+                    prepend-icon="mdi-school"
+                    class="font-weight-medium mb-1"
+                  >
+                    {{ item.promotion.name }}
+                  </v-chip>
+                  <div class="text-caption text-medium-emphasis">
+                    <v-icon size="small" class="mr-1">mdi-calendar</v-icon>
+                    {{ item.promotion.year }}
+                  </div>
+                </div>
+                
+                <!-- Fallback pour groupe numéroté (ancien format) -->
+                <div v-else-if="item.groupNumber" class="d-flex flex-column">
+                  <v-chip
+                    color="grey"
+                    size="small"
+                    variant="flat"
+                    prepend-icon="mdi-account-group"
+                    class="font-weight-medium mb-1"
                   >
                     Groupe {{ item.groupNumber }}
                   </v-chip>
+                  <div class="text-caption text-medium-emphasis">
+                    <v-icon size="small" class="mr-1">mdi-help-circle</v-icon>
+                    Format ancien
+                  </div>
                 </div>
-              </template>
-
-              <!-- Promotion/Groupe -->
-              <template v-slot:item.context="{ item }">
-                <div>
-                  <div v-if="item.promotion" class="text-body-2">
-                    <v-icon size="small" class="mr-1">mdi-school</v-icon>
-                    {{ item.promotion.name }} {{ item.promotion.year }}
-                  </div>
-                  <div v-if="item.group" class="text-caption text-medium-emphasis">
-                    <v-icon size="small" class="mr-1">mdi-account-group</v-icon>
-                    {{ item.group.name }}
-                  </div>
+                
+                <!-- Cas non défini -->
+                <div v-else class="d-flex flex-column">
+                  <v-chip
+                    color="grey-lighten-2"
+                    size="small"
+                    variant="outlined"
+                    prepend-icon="mdi-help"
+                    class="font-weight-medium"
+                  >
+                    Non défini
+                  </v-chip>
                 </div>
               </template>
 
@@ -984,9 +1042,8 @@ const snackbar = ref({
 // En-têtes du tableau
 const headers = ref([
   { title: 'Formulaire', align: 'start', key: 'form', sortable: false },
-  { title: 'Cible', align: 'start', key: 'target', sortable: false },
-  { title: 'Contexte', align: 'start', key: 'context', sortable: false },
-  { title: 'Scores', align: 'start', key: 'scores', sortable: false },
+  { title: 'Cible évaluée', align: 'start', key: 'target', sortable: false },
+  { title: 'Progression', align: 'start', key: 'scores', sortable: false },
   { title: 'Professeur', align: 'start', key: 'professor' },
   { title: 'Date', align: 'start', key: 'createdAt' },
   { title: 'Actions', align: 'end', key: 'actions', sortable: false }

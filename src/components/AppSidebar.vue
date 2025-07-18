@@ -28,18 +28,48 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
-const menuItems = ref([
-  { title: 'Tableau de bord', icon: 'mdi-view-dashboard', to: '/dashboard' },
-  { title: 'Promotions', icon: 'mdi-school', to: '/promotions' },
-  { title: 'Groupes', icon: 'mdi-account-multiple', to: '/groups' },
-  { title: 'Sous-groupes', icon: 'mdi-account-supervisor', to: '/subgroups' },
-  { title: 'Étudiants', icon: 'mdi-account-group', to: '/students' },
-  { title: 'Formulaires', icon: 'mdi-file-document-outline', to: '/forms' },
-  { title: 'Évaluations', icon: 'mdi-clipboard-check-outline', to: '/evaluations' },
-  { title: 'Export CSV', icon: 'mdi-file-export', to: '/export' }
-]);
+const currentUser = ref(null);
+
+// Charger les informations de l'utilisateur connecté
+onMounted(async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/auth/profile', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      currentUser.value = data;
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement du profil utilisateur:', error);
+  }
+});
+
+// Menu items basés sur le rôle de l'utilisateur
+const menuItems = computed(() => {
+  const baseItems = [
+    { title: 'Tableau de bord', icon: 'mdi-view-dashboard', to: '/dashboard' },
+    { title: 'Promotions', icon: 'mdi-school', to: '/promotions' },
+    { title: 'Groupes', icon: 'mdi-account-multiple', to: '/groups' },
+    { title: 'Sous-groupes', icon: 'mdi-account-supervisor', to: '/subgroups' },
+    { title: 'Étudiants', icon: 'mdi-account-group', to: '/students' },
+    { title: 'Formulaires', icon: 'mdi-file-document-outline', to: '/forms' },
+    { title: 'Évaluations', icon: 'mdi-clipboard-check-outline', to: '/evaluations' },
+    { title: 'Export CSV', icon: 'mdi-file-export', to: '/export' }
+  ];
+
+  // Ajouter la gestion des utilisateurs seulement pour les administrateurs
+  if (currentUser.value?.role === 'admin') {
+    baseItems.push({ title: 'Utilisateurs', icon: 'mdi-account-settings', to: '/users' });
+  }
+
+  return baseItems;
+});
 </script>
 
 <style scoped>

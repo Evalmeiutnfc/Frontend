@@ -281,7 +281,7 @@
                 </h4>
               </v-col>
               
-              <v-col cols="12" md="8">
+              <v-col :cols="isAdmin ? '8' : '12'" :md="isAdmin ? '8' : '12'">
                 <v-text-field 
                   v-model="form.title" 
                   label="Titre du formulaire" 
@@ -294,7 +294,7 @@
                 />
               </v-col>
               
-              <v-col cols="12" md="4">
+              <v-col cols="12" md="4" v-if="isAdmin">
                 <v-select
                   v-model="form.professor"
                   :items="professors"
@@ -305,9 +305,6 @@
                   item-title="fullName"
                   item-value="_id"
                   :rules="[rules.required]"
-                  :disabled="!isAdmin"
-                  :hint="!isAdmin ? 'Vous êtes automatiquement sélectionné comme professeur responsable' : ''"
-                  :persistent-hint="!isAdmin"
                   required
                 />
               </v-col>
