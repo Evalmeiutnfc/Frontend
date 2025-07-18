@@ -721,7 +721,7 @@ onMounted(async () => {
       loadUserStats()
     ]);
 
-    showNotification('Tableau de bord chargé avec succès !', 'success');
+    //showNotification('Tableau de bord chargé avec succès !', 'success');
   } catch (error) {
     console.error('Erreur globale lors du chargement:', error);
     showNotification('Erreur lors du chargement du tableau de bord', 'error');
